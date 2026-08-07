@@ -8,31 +8,6 @@ import type { SanityBlock } from '@/app/lib/types'
 // Re-export SanityBlock untuk backward compatibility
 export type { SanityBlock }
 
-// ═══════════════════════════════════════════════════════════
-//  DEDUPLICATION
-// ═══════════════════════════════════════════════════════════
-
-export async function isDuplicate(title: string, originalUrl?: string): Promise<boolean> {
-  // Cek duplikat berdasarkan judul
-  const titleCount = await client.fetch(
-    `count(*[_type == "post" && title == $title])`,
-    { title }
-  )
-  if (titleCount > 0) return true
-
-  // Cek duplikat berdasarkan URL sumber
-  if (originalUrl) {
-    const urlCount = await client.fetch(
-      `count(*[_type == "post" && originalUrl == $url])`,
-      { url: originalUrl }
-    )
-    if (urlCount > 0) return true
-  }
-
-  return false
-}
-
-// ═══════════════════════════════════════════════════════════
 //  SLUG GENERATOR
 // ═══════════════════════════════════════════════════════════
 

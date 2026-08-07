@@ -49,6 +49,18 @@ interface ReactionData {
   angry: number;
 }
 
+interface SourceAttribution {
+  sourceName: string;
+  sourceUrl: string;
+  accessedAt: string;
+}
+
+interface VerifiedFact {
+  claim: string;
+  confidence: string;
+  supportingSources: string[];
+}
+
 interface Post {
   _id: string;
   title: string;
@@ -65,7 +77,16 @@ interface Post {
   views: number;
   originalUrl?: string;
   sourceName?: string;
+  imageCaption?: string;
   author: { name: string; image?: any; bio?: string; slug?: { current: string }; verified?: boolean; role?: string } | null;
+  // AI Pipeline Metrics
+  factCheckScore?: number;
+  ethicsScore?: number;
+  originalityScore?: number;
+  plagiarismScore?: number;
+  sourceAttributions?: SourceAttribution[];
+  aiDisclosure?: boolean;
+  verifiedFacts?: VerifiedFact[];
 }
 
 /* ───────── Queries ───────── */
@@ -89,7 +110,14 @@ async function getPost(slug: string): Promise<Post | null> {
       originalUrl,
       sourceName,
       imageCaption,
-      author->{name, image, bio, slug, verified, role}
+      author->{name, image, bio, slug, verified, role},
+      factCheckScore,
+      ethicsScore,
+      originalityScore,
+      plagiarismScore,
+      sourceAttributions,
+      aiDisclosure,
+      verifiedFacts
     }`,
     { slug }
   );
@@ -593,6 +621,42 @@ export default async function ArticleDetail({ slug }: { slug: string }) {
                 height={675}
                 caption={(post as any).imageCaption || (post.sourceName ? `Foto: ${post.sourceName}` : (post.subtitle || post.title))}
               />
+            )}
+
+            {/* AI Disclosure Badge */}
+            {post.aiDisclosure && (
+              <div className="my-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
+                <p className="text-sm text-amber-800">
+                  🤖 Artikel ini disusun oleh AI dari beberapa sumber berita, diverifikasi oleh editor manusia.
+                </p>
+              </div>
+            )}
+
+            {/* Source Attribution Section */}
+            {post.sourceAttributions && post.sourceAttributions.length > 0 && (
+              <div className="my-4 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3">
+                <p className="mb-2 text-sm font-semibold text-blue-800">📎 Sumber Referensi</p>
+                <ul className="space-y-1">
+                  {post.sourceAttributions.map((source, i) => (
+                    <li key={i} className="text-xs text-blue-700">
+                      <span className="font-medium">{source.sourceName}</span>
+                      {source.sourceUrl && (
+                        <>
+                          {' — '}
+                          <a href={source.sourceUrl} target="_blank" rel="noopener noreferrer" className="underline hover:text-blue-900">
+                            {source.sourceUrl}
+                          </a>
+                        </>
+                      )}
+                      {source.accessedAt && (
+                        <span className="ml-1 text-blue-500">
+                          (diakses {new Date(source.accessedAt).toLocaleDateString('id-ID')})
+                        </span>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </div>
             )}
 
             {/* Font Size Slider */}
