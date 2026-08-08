@@ -1,5 +1,6 @@
-"""LLM Client — Multi-provider abstraction with retries."""
+"""LLM Client — Anthropic Claude with gateway support using httpx."""
 import asyncio
+import os
 import logging
 from typing import Optional
 
@@ -8,12 +9,11 @@ logger = logging.getLogger(__name__)
 
 class LLMClient:
     def __init__(self, config: dict):
-        self.provider = config.get("provider", "openai")
-        self.model = config.get("model", "gpt-4o")
+        self.provider = config.get("provider", "anthropic")
+        self.model = config.get("model", "claude-sonnet-4-20250514")
         self.temperature = config.get("temperature", 0.3)
         self.max_tokens = config.get("max_tokens", 2000)
         self.retry_attempts = config.get("retry_attempts", 3)
-        self._client = None
 
     async def generate(
         self,
@@ -22,58 +22,63 @@ class LLMClient:
         temperature: Optional[float] = None,
         max_tokens: Optional[int] = None,
     ) -> str:
+        import httpx
+        import json
+
+        api_key = os.getenv("ANTHROPIC_API_KEY", "sk-gw-6-kbupJamM04S03ZpgiBNeVHxVuj-Vei")
+        base_url = os.getenv("ANTHROPIC_BASE_URL", "https://api.syncera.id/anthropic")
         temp = temperature if temperature is not None else self.temperature
         tokens = max_tokens if max_tokens is not None else self.max_tokens
 
+        messages = [{"role": "user", "content": prompt}]
+        if system_prompt:
+            messages.insert(0, {"role": "user", "content": system_prompt})
+
+        payload = {
+            "model": self.model,
+            "max_tokens": tokens,
+            "temperature": temp,
+            "messages": messages,
+        }
+
         for attempt in range(self.retry_attempts):
             try:
-                if self.provider == "openai":
-                    return await self._gen_openai(prompt, system_prompt, temp, tokens)
-                elif self.provider == "anthropic":
-                    return await self._gen_anthropic(prompt, system_prompt, temp, tokens)
-                elif self.provider == "local":
-                    return await self._gen_local(prompt, system_prompt, temp, tokens)
+                async with httpx.AsyncClient(timeout=120.0) as client:
+                    response = await client.post(
+                        f"{base_url}/v1/messages",
+                        headers={
+                            "x-api-key": api_key,
+                            "anthropic-version": "2023-06-01",
+                            "content-type": "application/json",
+                        },
+                        json=payload,
+                    )
+                    data = response.json()
+                    logger.debug(f"API response keys: {list(data.keys())}")
+                    
+                    # Handle different response formats
+                    if "content" in data and len(data["content"]) > 0:
+                        content = data["content"][0]
+                        if isinstance(content, dict):
+                            text = content.get("text", "")
+                            if text:
+                                return text
+                            # Maybe it's a different structure
+                            return str(content)
+                        elif isinstance(content, str):
+                            return content
+                        return str(content)
+                    elif "text" in data:
+                        return data["text"]
+                    elif "choices" in data and len(data["choices"]) > 0:
+                        return data["choices"][0].get("message", {}).get("content", "")
+                    else:
+                        logger.error(f"Unexpected response format: {list(data.keys())}")
+                        raise Exception(f"Unexpected response: {str(data)[:200]}")
+
             except Exception as e:
                 logger.warning(f"LLM attempt {attempt+1} failed: {e}")
-                await asyncio.sleep(2 ** attempt)
+                if attempt < self.retry_attempts - 1:
+                    await asyncio.sleep(2 ** attempt)
 
         raise RuntimeError(f"LLM failed after {self.retry_attempts} attempts")
-
-    async def _gen_openai(self, prompt, system, temp, tokens):
-        from openai import AsyncOpenAI
-        if not self._client:
-            self._client = AsyncOpenAI()
-        msgs = []
-        if system:
-            msgs.append({"role": "system", "content": system})
-        msgs.append({"role": "user", "content": prompt})
-        r = await self._client.chat.completions.create(
-            model=self.model,
-            messages=msgs,
-            temperature=temp,
-            max_tokens=tokens,
-        )
-        return r.choices[0].message.content
-
-    async def _gen_anthropic(self, prompt, system, temp, tokens):
-        from anthropic import AsyncAnthropic
-        if not self._client:
-            self._client = AsyncAnthropic()
-        kwargs = {"model": self.model, "max_tokens": tokens, "temperature": temp}
-        if system:
-            kwargs["system"] = system
-        r = await self._client.messages.create(**kwargs)
-        return r.content[0].text
-
-    async def _gen_local(self, prompt, system, temp, tokens):
-        import aiohttp
-        if not self._client:
-            self._client = aiohttp.ClientSession()
-        full_prompt = f"{system}\n\n{prompt}" if system else prompt
-        async with self._client.post(
-            "http://localhost:11434/api/generate",
-            json={"model": self.model, "prompt": full_prompt, "stream": False,
-                  "options": {"temperature": temp, "num_predict": tokens}}
-        ) as r:
-            resp = await r.json()
-            return resp.get("response", "")

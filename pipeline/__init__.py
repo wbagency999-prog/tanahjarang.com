@@ -1,1 +1,1 @@
-# AI News Pipeline - Warta Nusantara
+# AI News Pipeline

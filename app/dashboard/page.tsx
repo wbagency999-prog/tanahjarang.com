@@ -20,6 +20,7 @@ export default function DashboardPage() {
   const [selectedArticle, setSelectedArticle] = useState<PendingArticle | null>(null)
   const [notes, setNotes] = useState('')
   const pipelineUrl = process.env.NEXT_PUBLIC_PIPELINE_URL || 'http://localhost:8080'
+  const pipelineAvailable = true
 
   useEffect(() => {
     fetchPendingArticles()
@@ -84,7 +85,19 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {loading ? (
+      {!pipelineAvailable ? (
+        <div className="text-center py-12">
+          <p className="text-lg text-gray-600 mb-4">
+            ⚠️ Pipeline server belum terhubung
+          </p>
+          <p className="text-sm text-gray-400">
+            Set <code className="bg-gray-100 px-2 py-1 rounded">NEXT_PUBLIC_PIPELINE_URL</code> di environment variables untuk menghubungkan ke Python pipeline server.
+          </p>
+          <p className="text-sm text-gray-400 mt-2">
+            Contoh: <code className="bg-gray-100 px-2 py-1 rounded">https://your-pipeline.railway.app</code>
+          </p>
+        </div>
+      ) : loading ? (
         <p className="text-center py-12 text-gray-400">Loading...</p>
       ) : articles.length === 0 ? (
         <p className="text-center py-12 text-gray-400">

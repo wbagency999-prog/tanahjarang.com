@@ -1,10 +1,20 @@
 """Final ethics check before publication."""
 import json
+import re
 import logging
 from typing import List, Dict
 from dataclasses import dataclass
 
 logger = logging.getLogger(__name__)
+
+
+def _parse_json(text: str):
+    """Parse JSON from LLM response, stripping markdown code fences."""
+    text = text.strip()
+    text = re.sub(r'^```(?:json)?\s*\n?', '', text)
+    text = re.sub(r'\n?```\s*$', '', text)
+    text = text.strip()
+    return json.loads(text)
 
 
 @dataclass
@@ -19,8 +29,8 @@ class EthicsReport:
 class EthicsGate:
     MAX_PLAGIARISM = 0.25
 
-    def __init__(self, anthropic_client):
-        self.client = anthropic_client
+    def __init__(self, llm_client):
+        self.llm = llm_client
         self.model = "claude-sonnet-4-20250514"
 
     async def check(self, article: Dict, source_articles: List[Dict], fact_result: Dict) -> EthicsReport:
@@ -47,33 +57,35 @@ class EthicsGate:
 
         # 4. Headline accuracy via LLM
         try:
-            resp = self.client.messages.create(
-                model=self.model, max_tokens=200, temperature=0.1,
-                messages=[{"role": "user", "content": f"""Does this headline accurately reflect the content?
+            resp = await self.llm.generate(
+                prompt=f"""Does this headline accurately reflect the content?
 Title: {article.get('title', '')}
 Content: {article.get('body', '')[:500]}
-Return JSON: {{"accurate": true/false}}"""}]
+Return JSON: {{"accurate": true/false}}""",
+                temperature=0.1,
+                max_tokens=200,
             )
-            check = json.loads(resp.content[0].text)
+            check = _parse_json(resp)
             if not check.get("accurate", True):
                 violations.append({"type": "headline_mismatch", "severity": "medium"})
-        except:
-            pass
+        except Exception as e:
+            logger.debug(f"Headline check failed: {e}")
 
         # 5. Sensationalism check
         try:
-            resp = self.client.messages.create(
-                model=self.model, max_tokens=200, temperature=0.1,
-                messages=[{"role": "user", "content": f"""Check for sensationalism/clickbait.
+            resp = await self.llm.generate(
+                prompt=f"""Check for sensationalism/clickbait.
 Title: {article.get('title', '')}
 Content: {article.get('body', '')[:1000]}
-Return JSON: {{"flagged": true/false, "issues": ["..."]}}"""}]
+Return JSON: {{"flagged": true/false, "issues": ["..."]}}""",
+                temperature=0.1,
+                max_tokens=200,
             )
-            sens = json.loads(resp.content[0].text)
+            sens = _parse_json(resp)
             if sens.get("flagged"):
                 violations.append({"type": "sensationalism", "severity": "medium"})
-        except:
-            pass
+        except Exception as e:
+            logger.debug(f"Sensationalism check failed: {e}")
 
         # Calculate scores
         orig_score = 1.0 - max_sim

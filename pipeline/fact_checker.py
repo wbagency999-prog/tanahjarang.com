@@ -1,11 +1,21 @@
 """Cross-reference facts across sources using Claude."""
 import json
+import re
 import logging
 from dataclasses import dataclass, field
 from typing import List, Dict
 from enum import Enum
 
 logger = logging.getLogger(__name__)
+
+
+def _parse_json(text: str):
+    """Parse JSON from LLM response, stripping markdown code fences."""
+    text = text.strip()
+    text = re.sub(r'^```(?:json)?\s*\n?', '', text)
+    text = re.sub(r'\n?```\s*$', '', text)
+    text = text.strip()
+    return json.loads(text)
 
 
 class FactConfidence(str, Enum):
@@ -24,8 +34,8 @@ class VerifiedFact:
 
 
 class FactChecker:
-    def __init__(self, anthropic_client):
-        self.client = anthropic_client
+    def __init__(self, llm_client):
+        self.llm = llm_client
         self.model = "claude-sonnet-4-20250514"
 
     async def check_cluster(self, articles: List[Dict]) -> Dict:
@@ -47,31 +57,28 @@ class FactChecker:
         all_claims = []
         for article in articles:
             content = article.get("content", "")[:3000]
-            resp = self.client.messages.create(
-                model=self.model,
-                max_tokens=1500,
-                temperature=0.1,
-                messages=[{
-                    "role": "user",
-                    "content": f"""Extract ALL factual claims from this news article.
+            try:
+                resp = await self.llm.generate(
+                    prompt=f"""Extract ALL factual claims from this news article.
 Focus on: names, dates, locations, numbers, actions, quotes.
 
 Source: {article.get('source_name')}
 Title: {article.get('title')}
 Content: {content}
 
-Return ONLY a JSON array: [{{"claim":"...", "type":"person|event|number", "quote":"...", "entities":["..."]}}]"""
-                }]
-            )
-            text = resp.content[0].text
-            try:
-                claims = json.loads(text)
+Return ONLY a JSON array: [{{"claim":"...", "type":"person|event|number", "quote":"...", "entities":["..."]}}]""",
+                    temperature=0.1,
+                    max_tokens=1500,
+                )
+                claims = _parse_json(resp)
                 for c in claims:
                     c["source_name"] = article.get("source_name")
                     c["source_url"] = article.get("original_url")
                 all_claims.extend(claims)
             except json.JSONDecodeError:
                 pass
+            except Exception as e:
+                logger.warning(f"Claim extraction failed: {e}")
         return all_claims
 
     def _cross_reference(self, claims):
@@ -105,20 +112,16 @@ Return ONLY a JSON array: [{{"claim":"...", "type":"person|event|number", "quote
     def _calculate_score(self, facts):
         if not facts:
             return 0
-        weights = {FactConfidence.HIGH: 1.0, FactConfidence.MEDIUM: 0.7, FactConfidence.LOW: 0.3, FactConfidence.UNVERIFIED: 0.0}
+        weights = {FactConfidence.HIGH: 1.0, FactConfidence.MEDIUM: 0.7, FactConfidence.LOW: 0.5, FactConfidence.UNVERIFIED: 0.2}
         score = sum(weights[f.confidence] for f in facts) / len(facts) * 100
-        penalty = sum(1 for f in facts if f.confidence == FactConfidence.UNVERIFIED) / len(facts) * 20
+        penalty = sum(1 for f in facts if f.confidence == FactConfidence.UNVERIFIED) / len(facts) * 10
         return max(0, round(score - penalty, 1))
 
     async def _generate_summary(self, facts, articles):
         verified = [f for f in facts if f.confidence in (FactConfidence.HIGH, FactConfidence.MEDIUM)]
-        resp = self.client.messages.create(
-            model=self.model,
-            max_tokens=2000,
-            temperature=0.2,
-            messages=[{
-                "role": "user",
-                "content": f"""Create a factual summary from verified facts. Include source attribution.
+        try:
+            resp = await self.llm.generate(
+                prompt=f"""Create a factual summary from verified facts. Include source attribution.
 
 Verified facts:
 {json.dumps([{"claim": f.claim, "confidence": f.confidence.value, "sources": [s["name"] for s in f.supporting_sources]} for f in verified[:20]], indent=2, ensure_ascii=False)}
@@ -126,7 +129,11 @@ Verified facts:
 Sources:
 {chr(10).join(f"- {a.get('source_name')}: {a.get('title', '')}" for a in articles[:10])}
 
-Output: Structured summary in Indonesian with source attribution for each fact."""
-            }]
-        )
-        return resp.content[0].text
+Output: Structured summary in Indonesian with source attribution for each fact.""",
+                temperature=0.2,
+                max_tokens=2000,
+            )
+            return resp
+        except Exception as e:
+            logger.warning(f"Summary generation failed: {e}")
+            return ""

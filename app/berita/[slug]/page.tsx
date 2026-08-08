@@ -1,5 +1,6 @@
 import { client } from '@/sanity/client'
-import { ARTICLE_BY_SLUG, PUBLISHED_ARTICLES } from '@/lib/queries'
+import { ARTICLE_BY_SLUG, PUBLISHED_ARTICLES } from '@/app/lib/queries'
+import { urlFor } from '@/sanity/image'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 
@@ -29,8 +30,9 @@ export async function generateStaticParams() {
   return articles.map((a) => ({ slug: a.slug.current }))
 }
 
-export async function generateMetadata({ params }: { params: { slug: string } }) {
-  const article = await client.fetch<Article>(ARTICLE_BY_SLUG, { slug: params.slug })
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params
+  const article = await client.fetch<Article>(ARTICLE_BY_SLUG, { slug })
   if (!article) return {}
   return {
     title: article.title,
@@ -44,8 +46,9 @@ export async function generateMetadata({ params }: { params: { slug: string } })
   }
 }
 
-export default async function ArticlePage({ params }: { params: { slug: string } }) {
-  const article = await client.fetch<Article>(ARTICLE_BY_SLUG, { slug: params.slug })
+export default async function ArticlePage({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params
+  const article = await client.fetch<Article>(ARTICLE_BY_SLUG, { slug })
   if (!article) notFound()
 
   const scoreColor = (score: number) => score >= 70 ? '#16a34a' : score >= 50 ? '#ea580c' : '#dc2626'
@@ -69,6 +72,17 @@ export default async function ArticlePage({ params }: { params: { slug: string }
           </span>
         ))}
       </div>
+
+      {/* MAIN IMAGE */}
+      {article.mainImage && (
+        <div className="mb-6 rounded-xl overflow-hidden">
+          <img
+            src={urlFor(article.mainImage).width(1200).height(675).url()}
+            alt={article.title}
+            className="w-full h-auto object-cover"
+          />
+        </div>
+      )}
 
       {/* TITLE */}
       <h1 className="text-3xl md:text-4xl font-bold mb-3 leading-tight">
