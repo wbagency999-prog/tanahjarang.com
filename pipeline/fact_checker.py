@@ -83,10 +83,15 @@ Return ONLY a JSON array: [{{"claim":"...", "type":"person|event|number", "quote
 
     def _cross_reference(self, claims):
         from collections import defaultdict
+        import re
+
         grouped = defaultdict(list)
 
         for claim in claims:
-            key = claim.get("claim", "").lower().strip()[:100]
+            raw_key = claim.get("claim", "").lower().strip()[:100]
+            # Normalize: remove punctuation, extra spaces for better matching
+            key = re.sub(r'[^\w\s]', '', raw_key)
+            key = re.sub(r'\s+', ' ', key).strip()
             grouped[key].append(claim)
 
         verified = []
@@ -112,8 +117,13 @@ Return ONLY a JSON array: [{{"claim":"...", "type":"person|event|number", "quote
     def _calculate_score(self, facts):
         if not facts:
             return 0
-        weights = {FactConfidence.HIGH: 1.0, FactConfidence.MEDIUM: 0.7, FactConfidence.LOW: 0.5, FactConfidence.UNVERIFIED: 0.2}
+        weights = {FactConfidence.HIGH: 1.0, FactConfidence.MEDIUM: 0.8, FactConfidence.LOW: 0.6, FactConfidence.UNVERIFIED: 0.3}
         score = sum(weights[f.confidence] for f in facts) / len(facts) * 100
+        # Bonus for multi-source corroboration
+        multi_source = sum(1 for f in facts if f.confidence in (FactConfidence.HIGH, FactConfidence.MEDIUM))
+        if len(facts) > 0:
+            bonus = (multi_source / len(facts)) * 15
+            score = min(100, score + bonus)
         penalty = sum(1 for f in facts if f.confidence == FactConfidence.UNVERIFIED) / len(facts) * 10
         return max(0, round(score - penalty, 1))
 

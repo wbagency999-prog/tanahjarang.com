@@ -91,12 +91,16 @@ class SanityClient:
             "factCheckScore": article_data.get("fact_score", 0),
             "ethicsScore": article_data.get("ethics_score", 0),
             "originalityScore": article_data.get("originality_score", 0),
-            "status": "pending_review",
+            "status": article_data.get("status", "pending_review"),
             "aiDisclosure": True,
             "seoTitle": article_data.get("seo_title", ""),
             "seoDescription": article_data.get("seo_description", ""),
             "createdAt": datetime.utcnow().isoformat(),
         }
+
+        # Set publishedAt if status is published
+        if doc.get("status") == "published":
+            doc["publishedAt"] = datetime.utcnow().isoformat()
 
         # Upload image if URL provided
         image_url = article_data.get("image_url")

@@ -125,9 +125,23 @@ class PipelineOrchestrator:
             logger.info(f"    Rejected: {len(ethics.violations)} violations")
             return {"approved": False, "violations": [v["type"] for v in ethics.violations]}
 
+        # Determine publish status based on quality scores
+        fact = fc["fact_check_score"]
+        eth = ethics.ethics_score
+        orig = ethics.originality_score
+
+        if fact >= 80 and eth >= 85 and orig >= 0.80:
+            status = "published"
+            logger.info(f"    🟢 AUTO-PUBLISH (fact={fact}, ethics={eth}, orig={orig:.0%})")
+        elif fact >= 50 and eth >= 70:
+            status = "pending_review"
+            logger.info(f"    🟡 MANUAL REVIEW (fact={fact}, ethics={eth}, orig={orig:.0%})")
+        else:
+            logger.info(f"    🔴 REJECTED (fact={fact}, ethics={eth}, orig={orig:.0%})")
+            return {"approved": False, "reason": "low_quality", "scores": {"fact": fact, "ethics": eth, "originality": orig}}
+
         # Push to Sanity
         logger.info("  Pushing to Sanity...")
-        # Pick best image from cluster articles
         best_image = next((a.get("image_url") for a in articles if a.get("image_url")), None)
         doc_id = await self.sanity.create_article(
             article_data={
@@ -138,17 +152,23 @@ class PipelineOrchestrator:
                 "conclusion": rewritten.conclusion,
                 "seo_title": rewritten.seo_title,
                 "seo_description": rewritten.seo_description,
-                "fact_score": fc["fact_check_score"],
-                "ethics_score": ethics.ethics_score,
-                "originality_score": ethics.originality_score,
+                "fact_score": fact,
+                "ethics_score": eth,
+                "originality_score": orig,
                 "categories": articles[0].get("categories", ["nasional"]),
                 "image_url": best_image,
+                "status": status,
             },
             source_articles=[{
                 "source_name": a.get("source_name"),
                 "original_url": a.get("original_url"),
             } for a in articles],
         )
-        logger.info(f"    Published: {doc_id}")
 
-        return {"approved": True, "doc_id": doc_id}
+        # If auto-published, set publishedAt immediately
+        if status == "published":
+            from datetime import datetime
+            await self.sanity.update_status(doc_id, "published", "Auto-published by pipeline")
+
+        logger.info(f"    ✅ {status}: {doc_id}")
+        return {"approved": True, "doc_id": doc_id, "status": status}
