@@ -49,6 +49,28 @@ async function getAllPostsByCategory(category: string): Promise<Post[]> {
   );
 }
 
+async function getAiArticlesByCategory(category: string): Promise<Post[]> {
+  const articles = await client.fetch<any[]>(
+    `*[_type == "aiArticle" && status == "published" && $category in categories] | order(publishedAt desc)[0...20]{
+      _id, title, slug, leadParagraph, mainImage, publishedAt, categories
+    }`,
+    { category }
+  );
+  return articles.map((a) => ({
+    _id: a._id,
+    title: a.title,
+    slug: a.slug,
+    excerpt: a.leadParagraph || "",
+    mainImage: a.mainImage || null,
+    publishedAt: a.publishedAt || "",
+    categories: (a.categories || []).map((c: string) => ({
+      title: c,
+      slug: { current: c },
+    })),
+    views: 0,
+  }));
+}
+
 export default async function KategoriPage({
   params,
 }: {
@@ -61,15 +83,21 @@ export default async function KategoriPage({
   const since24h = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString();
   const since7d = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
-  const [cat, totalPosts, posts] = await Promise.all([
+  const [cat, totalPosts, posts, aiArticles] = await Promise.all([
     getCategory(category),
     getTotalPosts(category),
     getAllPostsByCategory(category),
+    getAiArticlesByCategory(category),
   ]);
 
   if (!cat) {
     notFound();
   }
+
+  // Merge posts + aiArticles, sort by publishedAt
+  const allPosts = [...posts, ...aiArticles].sort(
+    (a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime()
+  );
 
   // Featured: ambil artikel terbaru di kategori untuk Hero
   const breakingPosts = await client.fetch<Post[]>(
@@ -166,7 +194,7 @@ export default async function KategoriPage({
       </header>
 
       <main className="mx-auto max-w-6xl px-4 py-6">
-        {posts.length === 0 && (
+        {allPosts.length === 0 && (
           <p className="py-16 text-center text-[#1A1815]/50">
             Belum ada berita di kategori ini.
           </p>
@@ -177,7 +205,7 @@ export default async function KategoriPage({
         <Feed
           breakingTicker={<BreakingTicker posts={breakingPosts} />}
           breaking={breakingPosts}
-          latest={posts}
+          latest={allPosts}
           popular24h={popular24h}
           popular7d={popular7d}
           popularAll={popularAll}

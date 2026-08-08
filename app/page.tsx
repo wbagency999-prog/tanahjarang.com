@@ -26,8 +26,37 @@ async function getAllPosts(): Promise<Post[]> {
   );
 }
 
+async function getAiArticles(): Promise<Post[]> {
+  const articles = await client.fetch<any[]>(
+    `*[_type == "aiArticle" && status == "published"] | order(publishedAt desc)[0...20]{
+      _id, title, slug, leadParagraph, mainImage, publishedAt, categories
+    }`
+  );
+  return articles.map((a) => ({
+    _id: a._id,
+    title: a.title,
+    slug: a.slug,
+    excerpt: a.leadParagraph || "",
+    mainImage: a.mainImage || null,
+    publishedAt: a.publishedAt || "",
+    categories: (a.categories || []).map((c: string) => ({
+      title: c,
+      slug: { current: c },
+    })),
+    views: 0,
+  }));
+}
+
 export default async function Home() {
-  const allPosts = await getAllPosts();
+  const [allPosts, aiArticles] = await Promise.all([
+    getAllPosts(),
+    getAiArticles(),
+  ]);
+
+  // Merge posts + aiArticles, sort by publishedAt
+  const mergedPosts = [...allPosts, ...aiArticles].sort(
+    (a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime()
+  );
 
   const now = new Date();
   const since6h = new Date(now.getTime() - 6 * 60 * 60 * 1000).toISOString();
@@ -100,7 +129,7 @@ export default async function Home() {
 
   return (
     <main className="mx-auto max-w-6xl px-4 py-6">
-      {allPosts.length === 0 && (
+      {mergedPosts.length === 0 && (
         <p className="py-16 text-center text-[#1A1815]/50">Belum ada berita. Tulis artikel pertamamu di Sanity Studio.</p>
       )}
 
@@ -111,7 +140,7 @@ export default async function Home() {
       <Feed
         breakingTicker={<BreakingTicker posts={breakingPosts} />}
         breaking={breakingPosts}
-        latest={allPosts}
+        latest={mergedPosts}
         popular24h={popular24h}
         popular7d={popular7d}
         popularAll={popularAll}
