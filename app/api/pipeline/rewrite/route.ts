@@ -15,6 +15,7 @@ interface PendingPost {
   body: any[];
   originalUrl: string;
   sourceName: string;
+  mainImage?: any;
 }
 
 // Ambil body text dari Portable Text blocks
@@ -85,14 +86,15 @@ export async function GET(request: NextRequest) {
 
   logs.push(`Starting AI rewrite at ${new Date().toISOString()}`);
 
-  // Ambil artikel dengan status pending-review
+  // Ambil artikel dengan status pending-review dan punya gambar
   const posts = await client.fetch<PendingPost[]>(
-    `*[_type == "post" && pipelineStatus == "pending-review"][0...${limit}]{
+    `*[_type == "post" && pipelineStatus == "pending-review" && defined(mainImage)] | order(publishedAt desc)[0...${limit}]{
       _id,
       title,
       body,
       originalUrl,
-      sourceName
+      sourceName,
+      mainImage
     }`
   );
 
