@@ -120,15 +120,26 @@ export async function GET(request: NextRequest) {
         'Nasional'
       );
 
-      // Update document in Sanity
+      // Generate slug from title
+      const slug = rewritten.title
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-|-$/g, '')
+        .substring(0, 100);
+
+      // Update document in Sanity with ALL required fields
       await writeClient
         .patch(post._id)
         .set({
           title: rewritten.title,
           subtitle: rewritten.subtitle,
+          slug: { _type: 'slug', current: slug },
           excerpt: rewritten.excerpt,
           body: textToBlocks(rewritten.body),
           tags: rewritten.tags,
+          metaDescription: rewritten.metaDescription || rewritten.excerpt,
+          seoTitle: rewritten.title,
+          seoDescription: rewritten.metaDescription || rewritten.excerpt,
           pipelineStatus: 'ready-for-review',
           aiDisclosure: true,
           aiMetadata: {

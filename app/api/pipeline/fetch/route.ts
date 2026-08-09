@@ -189,11 +189,15 @@ async function saveToSanity(article: FetchedArticle): Promise<string | null> {
       }
     }
 
+    const slug = generateSlug(article.title);
+    const excerpt = article.excerpt || article.content.substring(0, 200);
+
     const doc: any = {
       _type: 'post',
       title: article.title,
-      slug: { _type: 'slug', current: generateSlug(article.title) },
-      excerpt: article.excerpt,
+      slug: { _type: 'slug', current: slug },
+      subtitle: article.title,
+      excerpt: excerpt,
       body: textToBlocks(article.content),
       publishedAt: new Date(article.pubDate).toISOString(),
       originalUrl: article.link,
@@ -202,6 +206,9 @@ async function saveToSanity(article: FetchedArticle): Promise<string | null> {
       tags: [],
       views: 0,
       aiDisclosure: false,
+      metaDescription: excerpt.substring(0, 160),
+      seoTitle: article.title,
+      seoDescription: excerpt.substring(0, 160),
     };
 
     if (mainImage) {

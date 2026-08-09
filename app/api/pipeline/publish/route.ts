@@ -154,14 +154,24 @@ export async function GET(request: NextRequest) {
         ? [{ _type: 'reference', _ref: categoryRef }]
         : [];
 
-      // Update document
+      // Ensure slug exists
+      const slug = post.slug?.current || post.title
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-|-$/g, '')
+        .substring(0, 100);
+
+      // Update document with all required fields
       await writeClient
         .patch(post._id)
         .set({
           pipelineStatus: 'published',
           author: { _type: 'reference', _ref: authorRef },
           categories,
+          slug: { _type: 'slug', current: slug },
           publishedAt: post.publishedAt || new Date().toISOString(),
+          seoTitle: post.title,
+          seoDescription: post.excerpt || post.title,
         })
         .commit();
 
