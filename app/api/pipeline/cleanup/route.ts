@@ -16,6 +16,7 @@ export async function GET(request: NextRequest) {
 
   const logs: string[] = [];
   let deleted = 0;
+  let failed = 0;
 
   logs.push(`Starting cleanup at ${new Date().toISOString()}`);
 
@@ -27,15 +28,23 @@ export async function GET(request: NextRequest) {
 
     logs.push(`Found ${posts.length} articles to delete`);
 
-    // Delete dalam batch
-    const transaction = writeClient.transaction();
+    // Delete satu per satu untuk handle referensi
     for (const post of posts) {
-      transaction.delete(post._id);
-      deleted++;
+      try {
+        await writeClient.delete(post._id);
+        deleted++;
+      } catch (error: any) {
+        failed++;
+        if (failed <= 5) {
+          logs.push(`  Skip: ${post._id} - ${error.message.substring(0, 50)}`);
+        }
+      }
     }
 
-    await transaction.commit();
     logs.push(`✓ Deleted ${deleted} articles`);
+    if (failed > 0) {
+      logs.push(`⚠ Skipped ${failed} articles (have references)`);
+    }
   } catch (error: any) {
     logs.push(`✗ Error: ${error.message}`);
   }
@@ -45,6 +54,7 @@ export async function GET(request: NextRequest) {
   return NextResponse.json({
     success: true,
     deleted,
+    failed,
     logs,
   });
 }
