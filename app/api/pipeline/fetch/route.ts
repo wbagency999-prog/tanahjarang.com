@@ -177,7 +177,7 @@ function generateSlug(title: string): string {
 // Simpan ke Sanity
 async function saveToSanity(article: FetchedArticle): Promise<string | null> {
   try {
-    // Upload gambar
+    // Upload gambar - WAJIB
     let mainImage: any = undefined;
     if (article.imageUrl) {
       const assetId = await uploadImage(article.imageUrl);
@@ -189,8 +189,15 @@ async function saveToSanity(article: FetchedArticle): Promise<string | null> {
       }
     }
 
+    // Skip jika tidak ada gambar
+    if (!mainImage) {
+      console.log('Skipping article without image:', article.title);
+      return null;
+    }
+
     const slug = generateSlug(article.title);
     const excerpt = article.excerpt || article.content.substring(0, 200);
+    const metaDesc = excerpt.substring(0, 160);
 
     const doc: any = {
       _type: 'post',
@@ -199,6 +206,7 @@ async function saveToSanity(article: FetchedArticle): Promise<string | null> {
       subtitle: article.title,
       excerpt: excerpt,
       body: textToBlocks(article.content),
+      mainImage: mainImage,
       publishedAt: new Date(article.pubDate).toISOString(),
       originalUrl: article.link,
       sourceName: article.sourceName,
@@ -206,14 +214,15 @@ async function saveToSanity(article: FetchedArticle): Promise<string | null> {
       tags: [],
       views: 0,
       aiDisclosure: false,
-      metaDescription: excerpt.substring(0, 160),
+      metaDescription: metaDesc,
+      metaTitle: article.title,
       seoTitle: article.title,
-      seoDescription: excerpt.substring(0, 160),
+      seoDescription: metaDesc,
+      imageCaption: article.sourceName,
+      tableOfContent: false,
+      amp: false,
+      komentarPembaca: false,
     };
-
-    if (mainImage) {
-      doc.mainImage = mainImage;
-    }
 
     const result = await writeClient.create(doc);
     return result._id;

@@ -161,7 +161,9 @@ export async function GET(request: NextRequest) {
         .replace(/^-|-$/g, '')
         .substring(0, 100);
 
-      // Update document with all required fields
+      const metaDesc = post.excerpt?.substring(0, 160) || post.title;
+
+      // Update document with ALL required fields
       await writeClient
         .patch(post._id)
         .set({
@@ -170,8 +172,13 @@ export async function GET(request: NextRequest) {
           categories,
           slug: { _type: 'slug', current: slug },
           publishedAt: post.publishedAt || new Date().toISOString(),
+          metaDescription: metaDesc,
+          metaTitle: post.title,
           seoTitle: post.title,
-          seoDescription: post.excerpt || post.title,
+          seoDescription: metaDesc,
+          tableOfContent: false,
+          amp: false,
+          komentarPembaca: false,
         })
         .commit();
 

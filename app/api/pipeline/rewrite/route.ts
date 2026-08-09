@@ -127,21 +127,25 @@ export async function GET(request: NextRequest) {
         .replace(/^-|-$/g, '')
         .substring(0, 100);
 
+      const metaDesc = rewritten.metaDescription || rewritten.excerpt.substring(0, 160);
+
       // Update document in Sanity with ALL required fields
       await writeClient
         .patch(post._id)
         .set({
           title: rewritten.title,
-          subtitle: rewritten.subtitle,
+          subtitle: rewritten.subtitle || rewritten.title,
           slug: { _type: 'slug', current: slug },
           excerpt: rewritten.excerpt,
           body: textToBlocks(rewritten.body),
-          tags: rewritten.tags,
-          metaDescription: rewritten.metaDescription || rewritten.excerpt,
+          tags: rewritten.tags || [],
+          metaDescription: metaDesc,
+          metaTitle: rewritten.title,
           seoTitle: rewritten.title,
-          seoDescription: rewritten.metaDescription || rewritten.excerpt,
+          seoDescription: metaDesc,
           pipelineStatus: 'ready-for-review',
           aiDisclosure: true,
+          aiRewritten: true,
           aiMetadata: {
             model: 'claude-sonnet-5-20250514',
             rewrittenAt: new Date().toISOString(),
