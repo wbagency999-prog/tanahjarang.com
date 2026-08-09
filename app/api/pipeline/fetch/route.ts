@@ -90,7 +90,7 @@ async function fetchFeed(feed: typeof RSS_FEEDS[0]): Promise<FetchedArticle[]> {
       if (await isArticleExists(item.link)) continue;
 
       // Get content - full HTML atau snippet
-      const rawContent = item['content:encoded'] || item.content || item.contentSnippet || '';
+      const rawContent = (item as any)['content:encoded'] || item.content || item.contentSnippet || '';
       if (shouldExclude(item.title, rawContent)) continue;
 
       // Bersihkan HTML tags untuk text
