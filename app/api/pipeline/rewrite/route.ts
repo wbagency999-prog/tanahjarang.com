@@ -148,7 +148,7 @@ export async function GET(request: NextRequest) {
   logs.push(`\nDone! Processed: ${processed}, Success: ${success}, Failed: ${failed}`);
 
   return NextResponse.json({
-    success: true,
+    ok: true,
     timestamp: new Date().toISOString(),
     processed,
     success,
