@@ -77,6 +77,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
+  const limit = parseInt(request.nextUrl.searchParams.get('limit') || '3');
   const logs: string[] = [];
   let processed = 0;
   let success = 0;
@@ -86,7 +87,7 @@ export async function GET(request: NextRequest) {
 
   // Ambil artikel dengan status pending-review
   const posts = await client.fetch<PendingPost[]>(
-    `*[_type == "post" && pipelineStatus == "pending-review"][0...10]{
+    `*[_type == "post" && pipelineStatus == "pending-review"][0...${limit}]{
       _id,
       title,
       body,
