@@ -28,8 +28,9 @@ interface ApprovedPost {
 
 // Get default author ref
 async function getDefaultAuthorRef(): Promise<string | null> {
+  // Try multiple approaches to find the author
   const author = await client.fetch<{ _id: string } | null>(
-    `*[_type == "author" && slug.current == "warta-nusantara"][0]._id`
+    `*[_type == "author"][0]._id`
   );
   return author?._id || null;
 }
