@@ -1,9 +1,10 @@
 // ═══════════════════════════════════════════════════════════
-//  FETCH — Fetch berita dari RSS feed media mainstream
+//  FETCH — Fetch berita dari RSS feed + scrape full content
 // ═══════════════════════════════════════════════════════════
 
 import { NextRequest, NextResponse } from 'next/server';
 import Parser from 'rss-parser';
+import * as cheerio from 'cheerio';
 import { client } from '@/sanity/client';
 import { writeClient } from '@/sanity/writeClient';
 import { RSS_FEEDS, FILTER_KEYWORDS } from '@/lib/rss-feeds';
@@ -11,9 +12,9 @@ import { RSS_FEEDS, FILTER_KEYWORDS } from '@/lib/rss-feeds';
 export const dynamic = 'force-dynamic';
 
 const parser = new Parser({
-  timeout: 10000,
+  timeout: 15000,
   headers: {
-    'User-Agent': 'Warta Nusantara RSS Reader/1.0',
+    'User-Agent': 'Mozilla/5.0 (compatible; WartaBot/1.0)',
   },
 });
 
@@ -22,28 +23,105 @@ interface FetchedArticle {
   link: string;
   pubDate: string;
   content: string;
-  contentSnippet: string;
+  excerpt: string;
+  imageUrl: string | null;
   sourceName: string;
   category: string;
-  guid: string;
 }
 
-// Cek apakah artikel sudah ada di Sanity
+// Cek apakah artikel sudah ada
 async function isArticleExists(link: string): Promise<boolean> {
   const count = await client.fetch<number>(
-    `count(*[_type == "post" && originalUrl == $url] + *[_type == "drafts.post" && originalUrl == $url])`,
+    `count(*[_type == "post" && originalUrl == $url])`,
     { url: link }
   );
   return count > 0;
 }
 
-// Cek apakah artikel mengandung kata kunci yang dihindari
+// Filter konten tidak layak
 function shouldExclude(title: string, content: string): boolean {
   const text = (title + ' ' + content).toLowerCase();
-  return FILTER_KEYWORDS.exclude.some((keyword) => text.includes(keyword.toLowerCase()));
+  return FILTER_KEYWORDS.exclude.some((kw) => text.includes(kw.toLowerCase()));
 }
 
-// Fetch satu RSS feed
+// Scrape full article dari URL
+async function scrapeArticle(url: string): Promise<{ content: string; imageUrl: string | null } | null> {
+  try {
+    const res = await fetch(url, {
+      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; WartaBot/1.0)' },
+      signal: AbortSignal.timeout(10000),
+    });
+    if (!res.ok) return null;
+
+    const html = await res.text();
+    const $ = cheerio.load(html);
+
+    // Hapus script, style, nav, footer, sidebar, iklan
+    $('script, style, nav, footer, aside, .ad, .advertisement, .sidebar, .related, .comment').remove();
+
+    // Cari konten artikel - multiple selector
+    let contentEl = $('article').first();
+    if (!contentEl.length) contentEl = $('.article-content, .content-article, .post-content, .entry-content, .news-content, .detail-content').first();
+    if (!contentEl.length) contentEl = $('.detail_body, .article_body, .content_body').first();
+
+    // Extract paragraphs
+    const paragraphs: string[] = [];
+    contentEl.find('p').each((_, el) => {
+      const text = $(el).text().trim();
+      if (text.length > 30) { // Skip paragraf pendek
+        paragraphs.push(text);
+      }
+    });
+
+    // Extract gambar
+    let imageUrl: string | null = null;
+    const ogImage = $('meta[property="og:image"]').attr('content');
+    if (ogImage) {
+      imageUrl = ogImage;
+    } else {
+      const firstImg = contentEl.find('img').first().attr('src');
+      if (firstImg) imageUrl = firstImg;
+    }
+
+    // Absolutkan URL gambar
+    if (imageUrl && !imageUrl.startsWith('http')) {
+      try {
+        imageUrl = new URL(imageUrl, url).href;
+      } catch {
+        imageUrl = null;
+      }
+    }
+
+    return {
+      content: paragraphs.join('\n\n'),
+      imageUrl,
+    };
+  } catch (error: any) {
+    console.error(`Scrape error for ${url}:`, error.message);
+    return null;
+  }
+}
+
+// Upload gambar ke Sanity
+async function uploadImage(imageUrl: string): Promise<string | null> {
+  try {
+    const res = await fetch(imageUrl, {
+      signal: AbortSignal.timeout(10000),
+    });
+    if (!res.ok) return null;
+
+    const buffer = Buffer.from(await res.arrayBuffer());
+    const asset = await writeClient.assets.upload('image', buffer, {
+      filename: `article-${Date.now()}.jpg`,
+    });
+    return asset._id;
+  } catch (error: any) {
+    console.error('Image upload error:', error.message);
+    return null;
+  }
+}
+
+// Fetch RSS feed
 async function fetchFeed(feed: typeof RSS_FEEDS[0]): Promise<FetchedArticle[]> {
   try {
     const feedData = await parser.parseURL(feed.url);
@@ -51,23 +129,23 @@ async function fetchFeed(feed: typeof RSS_FEEDS[0]): Promise<FetchedArticle[]> {
 
     for (const item of feedData.items || []) {
       if (!item.title || !item.link) continue;
-
-      // Skip jika artikel sudah ada
       if (await isArticleExists(item.link)) continue;
 
-      // Skip jika konten tidak layak
-      const content = item.contentSnippet || item.content || item.content || '';
-      if (shouldExclude(item.title, content)) continue;
+      const snippet = item.contentSnippet || item.content || '';
+      if (shouldExclude(item.title, snippet)) continue;
+
+      // Scrape full article
+      const scraped = await scrapeArticle(item.link);
 
       articles.push({
         title: item.title,
         link: item.link,
         pubDate: item.pubDate || item.isoDate || new Date().toISOString(),
-        content: content,
-        contentSnippet: content.substring(0, 200),
+        content: scraped?.content || snippet,
+        excerpt: (scraped?.content || snippet).substring(0, 200),
+        imageUrl: scraped?.imageUrl || null,
         sourceName: feed.name,
         category: feed.category,
-        guid: item.guid || item.link,
       });
     }
 
@@ -78,32 +156,47 @@ async function fetchFeed(feed: typeof RSS_FEEDS[0]): Promise<FetchedArticle[]> {
   }
 }
 
-// Simpan artikel ke Sanity sebagai draft
+// Convert text ke Portable Text blocks
+function textToBlocks(text: string): any[] {
+  return text.split('\n\n').filter(Boolean).map((p, i) => ({
+    _type: 'block',
+    _key: `body-${i}`,
+    style: 'normal',
+    children: [{ _type: 'span', _key: `span-${i}`, text: p.trim() }],
+    markDefs: [],
+  }));
+}
+
+// Generate slug
+function generateSlug(title: string): string {
+  return title
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '')
+    .substring(0, 100);
+}
+
+// Simpan ke Sanity
 async function saveToSanity(article: FetchedArticle): Promise<string | null> {
   try {
-    const doc = {
+    // Upload gambar jika ada
+    let mainImage: any = undefined;
+    if (article.imageUrl) {
+      const assetId = await uploadImage(article.imageUrl);
+      if (assetId) {
+        mainImage = {
+          _type: 'image',
+          asset: { _type: 'reference', _ref: assetId },
+        };
+      }
+    }
+
+    const doc: any = {
       _type: 'post',
       title: article.title,
-      slug: {
-        _type: 'slug',
-        current: generateSlug(article.title),
-      },
-      excerpt: article.contentSnippet,
-      body: [
-        {
-          _type: 'block',
-          _key: 'intro',
-          style: 'normal',
-          children: [
-            {
-              _type: 'span',
-              _key: 'intro-text',
-              text: article.content,
-            },
-          ],
-          markDefs: [],
-        },
-      ],
+      slug: { _type: 'slug', current: generateSlug(article.title) },
+      excerpt: article.excerpt,
+      body: textToBlocks(article.content),
       publishedAt: new Date(article.pubDate).toISOString(),
       originalUrl: article.link,
       sourceName: article.sourceName,
@@ -113,21 +206,16 @@ async function saveToSanity(article: FetchedArticle): Promise<string | null> {
       aiDisclosure: false,
     };
 
+    if (mainImage) {
+      doc.mainImage = mainImage;
+    }
+
     const result = await writeClient.create(doc);
     return result._id;
   } catch (error: any) {
-    console.error('Error saving to Sanity:', error.message);
+    console.error('Error saving:', error.message);
     return null;
   }
-}
-
-// Generate slug dari judul
-function generateSlug(title: string): string {
-  return title
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-|-$/g, '')
-    .substring(0, 100);
 }
 
 export async function GET(request: NextRequest) {
@@ -136,36 +224,34 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const limit = parseInt(request.nextUrl.searchParams.get('limit') || '5');
+  const limit = parseInt(request.nextUrl.searchParams.get('limit') || '3');
   const logs: string[] = [];
   let totalFetched = 0;
   let totalSaved = 0;
 
-  logs.push(`Starting RSS fetch at ${new Date().toISOString()}`);
+  logs.push(`Starting fetch at ${new Date().toISOString()}`);
 
-  // Fetch dari semua feed yang enabled
   const enabledFeeds = RSS_FEEDS.filter((f) => f.enabled);
 
   for (const feed of enabledFeeds.slice(0, limit)) {
-    logs.push(`Fetching: ${feed.name}...`);
+    logs.push(`\nFetching: ${feed.name}...`);
     const articles = await fetchFeed(feed);
-    logs.push(`Found ${articles.length} new articles from ${feed.name}`);
+    logs.push(`Found ${articles.length} new articles`);
 
     for (const article of articles) {
       const saved = await saveToSanity(article);
       if (saved) {
         totalSaved++;
-        logs.push(`  ✓ Saved: ${article.title.substring(0, 50)}...`);
+        logs.push(`  ✓ ${article.title.substring(0, 60)}`);
       }
       totalFetched++;
     }
   }
 
-  logs.push(`\nDone! Fetched: ${totalFetched}, Saved: ${totalSaved}`);
+  logs.push(`\nDone! Total: ${totalFetched} fetched, ${totalSaved} saved`);
 
   return NextResponse.json({
     success: true,
-    timestamp: new Date().toISOString(),
     totalFetched,
     totalSaved,
     logs,
