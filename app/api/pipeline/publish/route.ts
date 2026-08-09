@@ -28,11 +28,8 @@ interface ApprovedPost {
 
 // Get default author ref
 async function getDefaultAuthorRef(): Promise<string | null> {
-  // Use writeClient to avoid CDN cache issues
-  const author = await writeClient.fetch<{ _id: string } | null>(
-    `*[_type == "author"][0]._id`
-  );
-  return author?._id || null;
+  // Known author ID from Sanity
+  return 'Z7sgg6YupGd2FS20j7fQ5s'; // Warta Nusantara
 }
 
 // Get category ref by slug
