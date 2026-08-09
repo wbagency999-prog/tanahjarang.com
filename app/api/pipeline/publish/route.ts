@@ -28,8 +28,8 @@ interface ApprovedPost {
 
 // Get default author ref
 async function getDefaultAuthorRef(): Promise<string | null> {
-  // Try multiple approaches to find the author
-  const author = await client.fetch<{ _id: string } | null>(
+  // Use writeClient to avoid CDN cache issues
+  const author = await writeClient.fetch<{ _id: string } | null>(
     `*[_type == "author"][0]._id`
   );
   return author?._id || null;
@@ -37,7 +37,7 @@ async function getDefaultAuthorRef(): Promise<string | null> {
 
 // Get category ref by slug
 async function getCategoryRef(slug: string): Promise<string | null> {
-  const category = await client.fetch<{ _id: string } | null>(
+  const category = await writeClient.fetch<{ _id: string } | null>(
     `*[_type == "category" && slug.current == $slug][0]._id`,
     { slug: slug.toLowerCase() }
   );
