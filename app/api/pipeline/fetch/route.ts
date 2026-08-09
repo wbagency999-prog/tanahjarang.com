@@ -198,6 +198,7 @@ async function saveToSanity(article: FetchedArticle): Promise<string | null> {
     const slug = generateSlug(article.title);
     const excerpt = article.excerpt || article.content.substring(0, 200);
     const metaDesc = excerpt.substring(0, 160);
+    const seoTitle = article.title.substring(0, 70); // Max 70 karakter
 
     const doc: any = {
       _type: 'post',
@@ -215,13 +216,13 @@ async function saveToSanity(article: FetchedArticle): Promise<string | null> {
       views: 0,
       aiDisclosure: false,
       metaDescription: metaDesc,
-      metaTitle: article.title,
-      seoTitle: article.title,
+      metaTitle: seoTitle,
+      seoTitle: seoTitle,
       seoDescription: metaDesc,
       imageCaption: article.sourceName,
       tableOfContent: false,
       amp: false,
-      komentarPembaca: false,
+      komentarPembaca: true, // Selalu aktif
     };
 
     const result = await writeClient.create(doc);

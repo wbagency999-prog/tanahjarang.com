@@ -128,6 +128,7 @@ export async function GET(request: NextRequest) {
         .substring(0, 100);
 
       const metaDesc = rewritten.metaDescription || rewritten.excerpt.substring(0, 160);
+      const seoTitle = rewritten.title.substring(0, 70); // Max 70 karakter
 
       // Update document in Sanity with ALL required fields
       await writeClient
@@ -140,12 +141,13 @@ export async function GET(request: NextRequest) {
           body: textToBlocks(rewritten.body),
           tags: rewritten.tags || [],
           metaDescription: metaDesc,
-          metaTitle: rewritten.title,
-          seoTitle: rewritten.title,
+          metaTitle: seoTitle,
+          seoTitle: seoTitle,
           seoDescription: metaDesc,
           pipelineStatus: 'ready-for-review',
           aiDisclosure: true,
           aiRewritten: true,
+          komentarPembaca: true, // Selalu aktif
           aiMetadata: {
             model: 'claude-sonnet-5-20250514',
             rewrittenAt: new Date().toISOString(),

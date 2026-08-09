@@ -32,6 +32,19 @@ async function getDefaultAuthorRef(): Promise<string | null> {
   return 'Z7sgg6YupGd2FS20j7fQ5s'; // Warta Nusantara
 }
 
+// Get author ref by category
+async function getAuthorByCategory(category: string): Promise<string> {
+  const authorMap: Record<string, string> = {
+    nasional: 'Z7sgg6YupGd2FS20j7fQ5s', // Warta Nusantara
+    teknologi: 'Z7sgg6YupGd2FS20j7fQ5s',
+    bisnis: 'Z7sgg6YupGd2FS20j7fQ5s',
+    olahraga: 'Z7sgg6YupGd2FS20j7fQ5s',
+    hiburan: 'Z7sgg6YupGd2FS20j7fQ5s',
+    internasional: 'Z7sgg6YupGd2FS20j7fQ5s',
+  };
+  return authorMap[category] || 'Z7sgg6YupGd2FS20j7fQ5s';
+}
+
 // Get category ref by slug
 async function getCategoryRef(slug: string): Promise<string | null> {
   const category = await writeClient.fetch<{ _id: string } | null>(
@@ -41,15 +54,15 @@ async function getCategoryRef(slug: string): Promise<string | null> {
   return category?._id || null;
 }
 
-// Map category from post
+// Map category from post - lebih lengkap
 function detectCategory(post: ApprovedPost): string {
-  // Try to detect from tags
   const categoryKeywords: Record<string, string[]> = {
-    nasional: ['politik', 'pemerintah', 'dpr', 'presiden', 'pilkada'],
-    teknologi: ['ai', 'tech', 'startup', 'digital', 'gadget', 'aplikasi'],
-    bisnis: ['saham', 'investasi', 'ekonomi', 'bisnis', 'rupiah'],
-    olahraga: ['sepak bola', 'timnas', 'liga', 'motogp', 'bulu tangkis'],
-    hiburan: ['artis', 'seleb', 'film', 'musik', 'konser'],
+    nasional: ['politik', 'pemerintah', 'dpr', 'presiden', 'pilkada', 'menteri', 'jakarta', 'indonesia'],
+    internasional: ['luar negeri', 'amerika', 'china', 'jepang', 'eropa', 'timur tengah', 'australia'],
+    teknologi: ['ai', 'tech', 'startup', 'digital', 'gadget', 'aplikasi', 'teknologi', 'software', 'hardware'],
+    bisnis: ['saham', 'investasi', 'ekonomi', 'bisnis', 'rupiah', 'bank', ' pasar modal', 'idx'],
+    olahraga: ['sepak bola', 'timnas', 'liga', 'motogp', 'bulu tangkis', 'olahraga', 'piala', 'football'],
+    hiburan: ['artis', 'seleb', 'film', 'musik', 'konser', 'hiburan', 'selebriti', 'drama'],
   };
 
   const text = (post.title + ' ' + (post.tags || []).join(' ')).toLowerCase();
@@ -149,7 +162,10 @@ export async function GET(request: NextRequest) {
       const categorySlug = detectCategory(post);
       const categoryRef = await getCategoryRef(categorySlug);
 
-      // Build categories array
+      // Get author based on category
+      const authorByCategory = await getAuthorByCategory(categorySlug);
+
+      // Build categories array - WAJIB ada
       const categories = categoryRef
         ? [{ _type: 'reference', _ref: categoryRef }]
         : [];
@@ -162,23 +178,24 @@ export async function GET(request: NextRequest) {
         .substring(0, 100);
 
       const metaDesc = post.excerpt?.substring(0, 160) || post.title;
+      const seoTitle = post.title.substring(0, 70); // Max 70 karakter
 
       // Update document with ALL required fields
       await writeClient
         .patch(post._id)
         .set({
           pipelineStatus: 'published',
-          author: { _type: 'reference', _ref: authorRef },
+          author: { _type: 'reference', _ref: authorByCategory },
           categories,
           slug: { _type: 'slug', current: slug },
           publishedAt: post.publishedAt || new Date().toISOString(),
           metaDescription: metaDesc,
-          metaTitle: post.title,
-          seoTitle: post.title,
+          metaTitle: seoTitle,
+          seoTitle: seoTitle,
           seoDescription: metaDesc,
           tableOfContent: false,
           amp: false,
-          komentarPembaca: false,
+          komentarPembaca: true, // Selalu aktif
         })
         .commit();
 
