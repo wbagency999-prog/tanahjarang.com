@@ -1,10 +1,9 @@
 // ═══════════════════════════════════════════════════════════
-//  FETCH — Fetch berita dari RSS feed + scrape full content
+//  FETCH — Fetch berita dari RSS feed
 // ═══════════════════════════════════════════════════════════
 
 import { NextRequest, NextResponse } from 'next/server';
 import Parser from 'rss-parser';
-import * as cheerio from 'cheerio';
 import { client } from '@/sanity/client';
 import { writeClient } from '@/sanity/writeClient';
 import { RSS_FEEDS, FILTER_KEYWORDS } from '@/lib/rss-feeds';
@@ -15,6 +14,13 @@ const parser = new Parser({
   timeout: 15000,
   headers: {
     'User-Agent': 'Mozilla/5.0 (compatible; WartaBot/1.0)',
+  },
+  customFields: {
+    item: [
+      ['media:content', 'mediaContent'],
+      ['media:thumbnail', 'mediaThumbnail'],
+      ['enclosure', 'enclosure'],
+    ],
   },
 });
 
@@ -44,81 +50,33 @@ function shouldExclude(title: string, content: string): boolean {
   return FILTER_KEYWORDS.exclude.some((kw) => text.includes(kw.toLowerCase()));
 }
 
-// Scrape full article dari URL
-async function scrapeArticle(url: string): Promise<{ content: string; imageUrl: string | null } | null> {
-  try {
-    const res = await fetch(url, {
-      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; WartaBot/1.0)' },
-      signal: AbortSignal.timeout(10000),
-    });
-    if (!res.ok) return null;
-
-    const html = await res.text();
-    const $ = cheerio.load(html);
-
-    // Hapus script, style, nav, footer, sidebar, iklan
-    $('script, style, nav, footer, aside, .ad, .advertisement, .sidebar, .related, .comment').remove();
-
-    // Cari konten artikel - multiple selector
-    let contentEl = $('article').first();
-    if (!contentEl.length) contentEl = $('.article-content, .content-article, .post-content, .entry-content, .news-content, .detail-content').first();
-    if (!contentEl.length) contentEl = $('.detail_body, .article_body, .content_body').first();
-
-    // Extract paragraphs
-    const paragraphs: string[] = [];
-    contentEl.find('p').each((_, el) => {
-      const text = $(el).text().trim();
-      if (text.length > 30) { // Skip paragraf pendek
-        paragraphs.push(text);
-      }
-    });
-
-    // Extract gambar
-    let imageUrl: string | null = null;
-    const ogImage = $('meta[property="og:image"]').attr('content');
-    if (ogImage) {
-      imageUrl = ogImage;
-    } else {
-      const firstImg = contentEl.find('img').first().attr('src');
-      if (firstImg) imageUrl = firstImg;
-    }
-
-    // Absolutkan URL gambar
-    if (imageUrl && !imageUrl.startsWith('http')) {
-      try {
-        imageUrl = new URL(imageUrl, url).href;
-      } catch {
-        imageUrl = null;
-      }
-    }
-
-    return {
-      content: paragraphs.join('\n\n'),
-      imageUrl,
-    };
-  } catch (error: any) {
-    console.error(`Scrape error for ${url}:`, error.message);
-    return null;
-  }
+// Extract gambar dari content HTML
+function extractImageFromHtml(html: string): string | null {
+  const match = html.match(/<img[^>]+src="([^"]+)"/);
+  return match ? match[1] : null;
 }
 
-// Upload gambar ke Sanity
-async function uploadImage(imageUrl: string): Promise<string | null> {
-  try {
-    const res = await fetch(imageUrl, {
-      signal: AbortSignal.timeout(10000),
-    });
-    if (!res.ok) return null;
-
-    const buffer = Buffer.from(await res.arrayBuffer());
-    const asset = await writeClient.assets.upload('image', buffer, {
-      filename: `article-${Date.now()}.jpg`,
-    });
-    return asset._id;
-  } catch (error: any) {
-    console.error('Image upload error:', error.message);
-    return null;
+// Ambil gambar dari item RSS
+function getRSSImage(item: any): string | null {
+  // Cek media:content
+  if (item.mediaContent && item.mediaContent.$) {
+    return item.mediaContent.$.url || null;
   }
+  // Cek media:thumbnail
+  if (item.mediaThumbnail && item.mediaThumbnail.$) {
+    return item.mediaThumbnail.$.url || null;
+  }
+  // Cek enclosure
+  if (item.enclosure && item.enclosure.url) {
+    return item.enclosure.url;
+  }
+  // Cek enclosureLength (bisa jadi array)
+  if (Array.isArray(item.enclosure)) {
+    for (const enc of item.enclosure) {
+      if (enc.url) return enc.url;
+    }
+  }
+  return null;
 }
 
 // Fetch RSS feed
@@ -131,19 +89,38 @@ async function fetchFeed(feed: typeof RSS_FEEDS[0]): Promise<FetchedArticle[]> {
       if (!item.title || !item.link) continue;
       if (await isArticleExists(item.link)) continue;
 
-      const snippet = item.contentSnippet || item.content || '';
-      if (shouldExclude(item.title, snippet)) continue;
+      // Get content - full HTML atau snippet
+      const rawContent = item['content:encoded'] || item.content || item.contentSnippet || '';
+      if (shouldExclude(item.title, rawContent)) continue;
 
-      // Scrape full article
-      const scraped = await scrapeArticle(item.link);
+      // Bersihkan HTML tags untuk text
+      const cleanText = rawContent
+        .replace(/<[^>]*>/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+
+      // Get image
+      let imageUrl = getRSSImage(item);
+      if (!imageUrl) {
+        imageUrl = extractImageFromHtml(rawContent);
+      }
+
+      // Absolutkan URL
+      if (imageUrl && !imageUrl.startsWith('http')) {
+        try {
+          imageUrl = new URL(imageUrl, item.link).href;
+        } catch {
+          imageUrl = null;
+        }
+      }
 
       articles.push({
         title: item.title,
         link: item.link,
         pubDate: item.pubDate || item.isoDate || new Date().toISOString(),
-        content: scraped?.content || snippet,
-        excerpt: (scraped?.content || snippet).substring(0, 200),
-        imageUrl: scraped?.imageUrl || null,
+        content: cleanText,
+        excerpt: cleanText.substring(0, 200),
+        imageUrl,
         sourceName: feed.name,
         category: feed.category,
       });
@@ -156,9 +133,30 @@ async function fetchFeed(feed: typeof RSS_FEEDS[0]): Promise<FetchedArticle[]> {
   }
 }
 
+// Upload gambar ke Sanity
+async function uploadImage(imageUrl: string): Promise<string | null> {
+  try {
+    const res = await fetch(imageUrl, {
+      signal: AbortSignal.timeout(10000),
+      headers: { 'User-Agent': 'Mozilla/5.0' },
+    });
+    if (!res.ok) return null;
+
+    const buffer = Buffer.from(await res.arrayBuffer());
+    if (buffer.length < 1000) return null; // Skip gambar terlalu kecil
+
+    const asset = await writeClient.assets.upload('image', buffer, {
+      filename: `article-${Date.now()}.jpg`,
+    });
+    return asset._id;
+  } catch {
+    return null;
+  }
+}
+
 // Convert text ke Portable Text blocks
 function textToBlocks(text: string): any[] {
-  return text.split('\n\n').filter(Boolean).map((p, i) => ({
+  return text.split(/\n\n+/).filter(Boolean).map((p, i) => ({
     _type: 'block',
     _key: `body-${i}`,
     style: 'normal',
@@ -179,7 +177,7 @@ function generateSlug(title: string): string {
 // Simpan ke Sanity
 async function saveToSanity(article: FetchedArticle): Promise<string | null> {
   try {
-    // Upload gambar jika ada
+    // Upload gambar
     let mainImage: any = undefined;
     if (article.imageUrl) {
       const assetId = await uploadImage(article.imageUrl);
@@ -242,13 +240,14 @@ export async function GET(request: NextRequest) {
       const saved = await saveToSanity(article);
       if (saved) {
         totalSaved++;
-        logs.push(`  ✓ ${article.title.substring(0, 60)}`);
+        const hasImg = article.imageUrl ? '📷' : '  ';
+        logs.push(`  ${hasImg} ${article.title.substring(0, 55)}`);
       }
       totalFetched++;
     }
   }
 
-  logs.push(`\nDone! Total: ${totalFetched} fetched, ${totalSaved} saved`);
+  logs.push(`\nDone! ${totalFetched} fetched, ${totalSaved} saved`);
 
   return NextResponse.json({
     success: true,
