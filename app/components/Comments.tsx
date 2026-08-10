@@ -18,7 +18,7 @@ export default function Comments({ postId }: CommentsProps) {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
-  const [form, setForm] = useState({ name: "", email: "", comment: "" });
+  const [form, setForm] = useState({ name: "", email: "", comment: "", website: "" });
 
   const fetchComments = useCallback(async () => {
     try {
@@ -51,7 +51,7 @@ export default function Comments({ postId }: CommentsProps) {
       });
 
       if (res.ok) {
-        setForm({ name: "", email: "", comment: "" });
+        setForm({ name: "", email: "", comment: "", website: "" });
         setSuccess(true);
         setTimeout(() => setSuccess(false), 3000);
       }
@@ -68,6 +68,19 @@ export default function Comments({ postId }: CommentsProps) {
 
       {/* Comment Form */}
       <form onSubmit={handleSubmit} className="mb-6 rounded-lg border border-black/10 bg-[#1A1815]/[.02] p-4">
+        {/* Honeypot anti-spam: hidden from humans, bots fill it in */}
+        <div aria-hidden="true" style={{ position: 'absolute', left: '-9999px', opacity: 0, height: 0, width: 0, overflow: 'hidden' }}>
+          <label htmlFor="website">Website</label>
+          <input
+            id="website"
+            name="website"
+            type="text"
+            tabIndex={-1}
+            autoComplete="off"
+            value={form.website}
+            onChange={(e) => setForm({ ...form, website: e.target.value })}
+          />
+        </div>
         <div className="grid gap-3 sm:grid-cols-2">
           <input
             type="text"

@@ -244,6 +244,7 @@ html.dark body::before {
 }
 
 html.dark .bg-white { background-color: #1e293b; }
+html.dark .bg-white\/95 { background-color: rgba(30, 41, 59, 0.95); }
 html.dark .bg-\[\#1A1815\]\/\[\.02\] { background-color: rgba(255,255,255,0.03); }
 html.dark .text-\[\#1A1815\] { color: #e2e8f0; }
 html.dark .text-\[\#1A1815\]\/50 { color: rgba(226,232,240,0.5); }
@@ -251,9 +252,13 @@ html.dark .text-\[\#1A1815\]\/60 { color: rgba(226,232,240,0.6); }
 html.dark .text-\[\#1A1815\]\/70 { color: rgba(226,232,240,0.7); }
 html.dark .text-\[\#1A1815\]\/80 { color: rgba(226,232,240,0.8); }
 html.dark .text-\[\#1A1815\]\/40 { color: rgba(226,232,240,0.4); }
+html.dark .text-\[\#1A1815\]\/30 { color: rgba(226,232,240,0.3); }
+html.dark .text-\[\#1A1815\]\/20 { color: rgba(226,232,240,0.2); }
 html.dark .border-black\/5 { border-color: rgba(255,255,255,0.1); }
 html.dark .border-black\/10 { border-color: rgba(255,255,255,0.1); }
+html.dark .border-black\/\[\.03\] { border-color: rgba(255,255,255,0.05); }
 html.dark .bg-black\/\[\.02\] { background-color: rgba(255,255,255,0.03); }
+html.dark .bg-black\/\[\.03\] { background-color: rgba(255,255,255,0.05); }
 html.dark .bg-black\/5 { background-color: rgba(255,255,255,0.05); }
 html.dark .hover\:bg-black\/\[\.02\]:hover { background-color: rgba(255,255,255,0.05); }
 html.dark .bg-\[\#CC181F\]\/10 { background-color: rgba(204,24,31,0.15); }
@@ -270,6 +275,11 @@ html.dark .prose blockquote { border-left-color: #f87171; background-color: rgba
 html.dark input, html.dark textarea { background-color: #1e293b; color: #e2e8f0; border-color: rgba(255,255,255,0.1); }
 html.dark input:focus, html.dark textarea:focus { border-color: #f87171; }
 html.dark .card-shadow { box-shadow: 0 1px 3px rgba(0,0,0,0.2), 0 1px 2px rgba(0,0,0,0.3); }
+
+/* Gradient backgrounds - dark mode overrides */
+html.dark .from-slate-50 { --tw-gradient-from: #1e293b; }
+html.dark .to-white { --tw-gradient-to: #0f172a; }
+html.dark .from-white { --tw-gradient-from: #1e293b; }
 
 /* AdSense */
 .ad-container { min-height: 90px; }

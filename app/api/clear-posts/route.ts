@@ -11,7 +11,8 @@ export const dynamic = 'force-dynamic'
 export async function POST(req: Request) {
   const body = await req.json().catch(() => ({}))
   
-  if (body.secret !== 'tanahjarang-pipeline-2026') {
+  const secret = process.env.PIPELINE_SECRET
+  if (!body.secret || !secret || body.secret !== secret) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 

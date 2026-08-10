@@ -29,7 +29,12 @@ export async function GET(req: NextRequest) {
 // POST — kirim komentar baru (pending approval)
 export async function POST(req: NextRequest) {
   try {
-    const { postId, name, email, comment } = await req.json();
+    const { postId, name, email, comment, website } = await req.json();
+
+    // Honeypot anti-spam: bots fill hidden fields, humans don't
+    if (website) {
+      return NextResponse.json({ success: true, id: 'honeypot' });
+    }
 
     if (!postId || !name?.trim() || !comment?.trim()) {
       return NextResponse.json({ error: "postId, name, dan comment wajib diisi" }, { status: 400 });

@@ -2,7 +2,7 @@
 //  SETUP DEFAULTS — Auto-create author & kategori untuk pipeline
 // ═══════════════════════════════════════════════════════════
 
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { writeClient } from '@/sanity/writeClient'
 import { client } from '@/sanity/client'
 
@@ -34,7 +34,13 @@ const DEFAULT_CATEGORIES = [
   { title: 'Pendidikan', slug: 'pendidikan', description: 'Berita pendidikan' },
 ]
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const secret = request.nextUrl.searchParams.get('secret')
+  const pipelineSecret = process.env.PIPELINE_SECRET
+  if (!pipelineSecret || secret !== pipelineSecret) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
   const logs: string[] = []
 
   // 1. Setup default author

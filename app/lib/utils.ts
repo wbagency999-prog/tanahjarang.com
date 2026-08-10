@@ -8,13 +8,65 @@ import type { SanityBlock } from '@/app/lib/types'
 // Re-export SanityBlock untuk backward compatibility
 export type { SanityBlock }
 
+// ═══════════════════════════════════════════════════════════
+//  DEDUPLICATION
+// ═══════════════════════════════════════════════════════════
+
+function simpleHash(str: string): string {
+  let hash = 0
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i)
+    hash = ((hash << 5) - hash) + char
+    hash = hash & hash
+  }
+  return Math.abs(hash).toString(36)
+}
+
+function normalizeTitle(title: string): string {
+  return title.toLowerCase().replace(/[^\w\s]/g, '').replace(/\s+/g, ' ').trim().substring(0, 50)
+}
+
+const localDedupCache = new Map<string, number>()
+const DEDUP_CACHE_TTL_MS = 30 * 60 * 1000
+
+export async function isDuplicate(title: string, originalUrl?: string): Promise<boolean> {
+  const now = Date.now()
+  const titleHash = simpleHash(normalizeTitle(title))
+  if (localDedupCache.has(titleHash)) {
+    const cachedTime = localDedupCache.get(titleHash)!
+    if (now - cachedTime < DEDUP_CACHE_TTL_MS) return true
+    localDedupCache.delete(titleHash)
+  }
+  if (originalUrl) {
+    const urlHash = simpleHash(originalUrl)
+    if (localDedupCache.has(urlHash)) {
+      const cachedTime = localDedupCache.get(urlHash)!
+      if (now - cachedTime < DEDUP_CACHE_TTL_MS) return true
+      localDedupCache.delete(urlHash)
+    }
+  }
+  const titleCount = await client.fetch(`count(*[_type == "post" && title == $title])`, { title })
+  if (titleCount > 0) { localDedupCache.set(titleHash, now); return true }
+  if (originalUrl) {
+    const urlCount = await client.fetch(`count(*[_type == "post" && originalUrl == $url])`, { url: originalUrl })
+    if (urlCount > 0) { localDedupCache.set(simpleHash(originalUrl), now); return true }
+  }
+  return false
+}
+
+export function markAsPublished(title: string, originalUrl?: string): void {
+  const now = Date.now()
+  localDedupCache.set(simpleHash(normalizeTitle(title)), now)
+  if (originalUrl) localDedupCache.set(simpleHash(originalUrl), now)
+}
+
 //  SLUG GENERATOR
 // ═══════════════════════════════════════════════════════════
 
 export function generateSlug(title: string): string {
   return title
     .toLowerCase()
-    .replace(/[^a-z0-9\s-]/g, '')
+    .replace(/[^\w\s-]/g, '')
     .replace(/\s+/g, '-')
     .replace(/-+/g, '-')
     .replace(/^-|-$/g, '')
@@ -73,7 +125,7 @@ export function toSanityBlocks(
   return items
     .filter((item) => item && item.text?.trim())
     .map((item, index) => {
-      const blockKey = `${prefix}-${Date.now()}-${index}`
+      const blockKey = `${prefix}-${Date.now()}-${index}-${Math.random().toString(36).substring(2, 8)}`
       return {
         _type: 'block' as const,
         _key: blockKey,

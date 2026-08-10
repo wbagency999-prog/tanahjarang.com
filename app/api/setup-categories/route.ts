@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { writeClient } from "@/sanity/writeClient";
 
 const NEW_CATEGORIES = [
@@ -8,7 +8,13 @@ const NEW_CATEGORIES = [
   { title: "Bisnis", slug: "bisnis", description: "Berita bisnis, ekonomi, dan finansial" },
 ];
 
-export async function POST() {
+export async function POST(request: NextRequest) {
+  const body = await request.json().catch(() => ({}))
+  const secret = process.env.PIPELINE_SECRET
+  if (!body.secret || !secret || body.secret !== secret) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   const results: string[] = [];
 
   for (const cat of NEW_CATEGORIES) {

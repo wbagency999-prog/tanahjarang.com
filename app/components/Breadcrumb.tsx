@@ -10,6 +10,7 @@ export default function Breadcrumb({
   items: Crumb[];
   light?: boolean;
 }) {
+  const baseUrl = process.env.SITE_URL || "https://tanahjarang.com";
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "BreadcrumbList",
@@ -17,7 +18,7 @@ export default function Breadcrumb({
       "@type": "ListItem",
       position: i + 1,
       name: item.name,
-      ...(item.href ? { item: `https://tanahjarang.com${item.href}` } : {}),
+      ...(item.href ? { item: `${baseUrl}${item.href}` } : {}),
     })),
   };
 

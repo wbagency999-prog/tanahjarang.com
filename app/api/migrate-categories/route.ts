@@ -2,21 +2,27 @@
 // POST: Jalankan migrasi | GET: Lihat status
 // ═══════════════════════════════════════════════════════════
 
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { client } from '@/sanity/client'
 import { writeClient } from '@/sanity/writeClient'
 
 export const dynamic = 'force-dynamic'
 
 export async function GET() {
-  // Lihat semua kategori yang ada
+  // Read-only: lihat semua kategori yang ada
   const categories = await client.fetch<any[]>(
     `*[_type == "category"]{ _id, title, slug, description }`
   )
   return NextResponse.json({ categories })
 }
 
-export async function POST() {
+export async function POST(request: NextRequest) {
+  const body = await request.json().catch(() => ({}))
+  const secret = process.env.PIPELINE_SECRET
+  if (!body.secret || !secret || body.secret !== secret) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
   const logs: string[] = []
 
   try {

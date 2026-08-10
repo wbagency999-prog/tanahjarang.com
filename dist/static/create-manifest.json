@@ -1,0 +1,21 @@
+{
+  "createdAt": "2026-08-10T10:43:09.830Z",
+  "studioVersion": "6.8.0",
+  "version": 3,
+  "workspaces": [
+    {
+      "basePath": "/",
+      "dataset": "production",
+      "icon": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 32 32\"><rect width=\"32\" height=\"32\" rx=\"2\" fill=\"#556bfc\"></rect><text x=\"50%\" y=\"50%\" text-anchor=\"middle\" alignment-baseline=\"middle\" fill=\"hsla(232, 97%, 26%, 1)\" style=\"font-family:Inter, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, Roboto, &quot;Helvetica Neue&quot;, &quot;Liberation Sans&quot;, Helvetica, Arial, system-ui, sans-serif;font-weight:500;font-size:13px;transform:translateY(1px)\">WN</text></svg>",
+      "mediaLibrary": {
+        "enabled": false,
+        "__internal": {}
+      },
+      "name": "tanahjarang",
+      "projectId": "7kf72dsd",
+      "schema": "1f082b58.create-schema.json",
+      "title": "Warta Nusantara",
+      "tools": "a1fd46b5.create-tools.json"
+    }
+  ]
+}

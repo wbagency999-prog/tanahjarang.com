@@ -70,7 +70,7 @@ export default function BreakingTicker({ posts }: { posts: Post[] }) {
   const catSlug = (p: Post) => p.categories?.[0]?.slug?.current || "";
 
   return (
-    <div className="relative border-b border-[#CC181F]/20 bg-gradient-to-r from-[#CC181F]/[.08] via-[#CC181F]/[.04] to-transparent overflow-hidden">
+    <div className="relative border-b border-[#CC181F]/20 bg-gradient-to-r from-[#CC181F]/[.08] via-[#CC181F]/[.04] to-transparent">
       {/* Animated background pulse */}
       <div className="absolute inset-0 bg-[#CC181F]/[.02] animate-pulse" />
 

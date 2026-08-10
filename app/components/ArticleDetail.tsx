@@ -400,6 +400,7 @@ export default async function ArticleDetail({ slug }: { slug: string }) {
 
   incrementViews(post._id);
 
+  const baseUrl = process.env.SITE_URL || "https://tanahjarang.com";
   const categoryTitles = post.categories?.map((c) => c.title) ?? [];
   const mainCatSlug = post.categories?.[0]?.slug?.current || "";
 
@@ -487,7 +488,7 @@ export default async function ArticleDetail({ slug }: { slug: string }) {
 
   const mainCategory = post.categories?.[0];
   const imageUrl = post.mainImage ? urlFor(post.mainImage).width(1200).height(675).url() : undefined;
-  const pageUrl = `https://tanahjarang.com${articleHref(post)}`;
+  const pageUrl = `${baseUrl}${articleHref(post)}`;
   const headings = post.tableOfContent === "iya" ? extractHeadings(post.body) : [];
 
   const wordCount = Array.isArray(post.body)
@@ -508,14 +509,14 @@ export default async function ArticleDetail({ slug }: { slug: string }) {
     datePublished: post.publishedAt,
     dateModified: post.updatedAt || post.publishedAt,
     author: post.author
-      ? { "@type": "Person", name: post.author.name, url: `https://tanahjarang.com/author/${post.author.slug?.current || ""}`, jobTitle: post.author.role || undefined }
+      ? { "@type": "Person", name: post.author.name, url: `${baseUrl}/author/${post.author.slug?.current || ""}`, jobTitle: post.author.role || undefined }
       : { "@type": "Person", name: "Redaksi" },
     publisher: {
       "@type": "Organization",
       name: "Warta Nusantara",
       logo: {
         "@type": "ImageObject",
-        url: "https://tanahjarang.com/icon-192.png",
+        url: `${baseUrl}/icon-192.png`,
       },
     },
     description: post.excerpt || post.title,
@@ -527,7 +528,7 @@ export default async function ArticleDetail({ slug }: { slug: string }) {
     isPartOf: {
       "@type": "WebSite",
       name: "Warta Nusantara",
-      url: "https://tanahjarang.com",
+      url: baseUrl,
     },
     speakable: {
       "@type": "SpeakableSpecification",

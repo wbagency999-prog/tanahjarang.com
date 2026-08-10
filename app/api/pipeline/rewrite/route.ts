@@ -78,7 +78,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const limit = parseInt(request.nextUrl.searchParams.get('limit') || '3');
+  const limit = parseInt(request.nextUrl.searchParams.get('limit') || '10');
   const logs: string[] = [];
   let processed = 0;
   let success = 0;
@@ -128,14 +128,15 @@ export async function GET(request: NextRequest) {
         .substring(0, 100);
 
       const metaDesc = rewritten.metaDescription || rewritten.excerpt.substring(0, 160);
-      const seoTitle = rewritten.title.substring(0, 70); // Max 70 karakter
+      const seoTitle = (rewritten.seoTitle || rewritten.title).substring(0, 60);
+      const subtitle = (rewritten.subtitle || rewritten.title).substring(0, 120);
 
       // Update document in Sanity with ALL required fields
       await writeClient
         .patch(post._id)
         .set({
           title: rewritten.title,
-          subtitle: rewritten.subtitle || rewritten.title,
+          subtitle: subtitle,
           slug: { _type: 'slug', current: slug },
           excerpt: rewritten.excerpt,
           body: textToBlocks(rewritten.body),
@@ -147,7 +148,9 @@ export async function GET(request: NextRequest) {
           pipelineStatus: 'ready-for-review',
           aiDisclosure: true,
           aiRewritten: true,
-          komentarPembaca: true, // Selalu aktif
+          komentarPembaca: true,
+          amp: false,
+          tableOfContent: true,
           aiMetadata: {
             model: 'claude-sonnet-5-20250514',
             rewrittenAt: new Date().toISOString(),

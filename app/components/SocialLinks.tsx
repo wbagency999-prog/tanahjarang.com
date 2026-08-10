@@ -2,13 +2,26 @@ interface SocialLinksProps {
   variant?: "header" | "footer";
 }
 
+// Social media URLs — update these when accounts are configured
+const SOCIAL_URLS: Record<string, string> = {
+  // Instagram: "",
+  // Twitter: "",
+  // YouTube: "",
+  // TikTok: "",
+};
+
 export default function SocialLinks({ variant = "header" }: SocialLinksProps) {
-  const links = [
-    { name: "Instagram", href: "#", icon: "📷" },
-    { name: "Twitter/X", href: "#", icon: "𝕏" },
-    { name: "YouTube", href: "#", icon: "▶" },
-    { name: "TikTok", href: "#", icon: "♪" },
+  const allLinks = [
+    { name: "Instagram", key: "instagram", icon: "📷" },
+    { name: "Twitter/X", key: "twitter", icon: "𝕏" },
+    { name: "YouTube", key: "youtube", icon: "▶" },
+    { name: "TikTok", key: "tiktok", icon: "♪" },
   ];
+
+  // Only show links with configured URLs
+  const links = allLinks.filter((l) => SOCIAL_URLS[l.key]);
+
+  if (links.length === 0) return null;
 
   if (variant === "footer") {
     return (
@@ -18,7 +31,7 @@ export default function SocialLinks({ variant = "header" }: SocialLinksProps) {
           {links.map((link) => (
             <li key={link.name}>
               <a
-                href={link.href}
+                href={SOCIAL_URLS[link.key]}
                 target="_blank"
                 rel="noopener noreferrer"
                 aria-label={link.name}
@@ -38,7 +51,7 @@ export default function SocialLinks({ variant = "header" }: SocialLinksProps) {
       {links.map((link) => (
         <a
           key={link.name}
-          href={link.href}
+          href={SOCIAL_URLS[link.key]}
           target="_blank"
           rel="noopener noreferrer"
           aria-label={link.name}

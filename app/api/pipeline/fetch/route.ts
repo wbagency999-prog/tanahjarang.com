@@ -94,7 +94,7 @@ async function fetchFeed(feed: typeof RSS_FEEDS[0]): Promise<FetchedArticle[]> {
       if (shouldExclude(item.title, rawContent)) continue;
 
       // Bersihkan HTML tags untuk text
-      const cleanText = rawContent
+      let cleanText = rawContent
         .replace(/<[^>]*>/g, ' ')
         .replace(/\s+/g, ' ')
         .trim();
@@ -198,13 +198,44 @@ async function saveToSanity(article: FetchedArticle): Promise<string | null> {
     const slug = generateSlug(article.title);
     const excerpt = article.excerpt || article.content.substring(0, 200);
     const metaDesc = excerpt.substring(0, 160);
-    const seoTitle = article.title.substring(0, 70); // Max 70 karakter
+    const seoTitle = article.title.substring(0, 60); // Max 60 karakter
+    const subtitle = article.title.substring(0, 120); // Max 120 karakter
+    const imageCaption = `${article.title} | Foto: ${article.sourceName}`;
+
+    // Detect category from article
+    const categoryMap: Record<string, string> = {
+      nasional: 'kF0pH8zAeRz6etg9XEHvmR',
+      internasional: 'vG7OWidh2JKCGmChuCBMZo',
+      teknologi: '4jdLeV61fwp22DXUjLo4vy',
+      olahraga: '4jdLeV61fwp22DXUjLo5kM',
+      hiburan: 'kF0pH8zAeRz6etg9XEHw11',
+      bisnis: 'a89c1f1f-b021-4604-9214-2b9e9ef097c8',
+      pendidikan: 'vG7OWidh2JKCGmChuCBMmJ',
+      otomotif: 'c669d085-a81e-45ac-8057-12a955e6e20a',
+    };
+    const catKey = article.category.toLowerCase();
+    const catId = categoryMap[catKey] || categoryMap.nasional;
+    const categories = [{ _type: 'reference' as const, _ref: catId, _key: `cat-${catId}` }];
+
+    // Author per kategori
+    const authorMap: Record<string, string> = {
+      nasional: 'Z7sgg6YupGd2FS20j7fQ5s',     // Warta Nusantara
+      internasional: 'Z7sgg6YupGd2FS20j9M4S6', // Hendra Wijaya
+      teknologi: '11XvD3mq7HlIxXJq9S3Snm',     // Dimas Kurniawan
+      olahraga: '11XvD3mq7HlIxXJq9S3P58',      // Rizky Aditya
+      hiburan: '11XvD3mq7HlIxXJq9S3QIX',       // Maya Putri
+      bisnis: '11XvD3mq7HlIxXJq9S3NDo',        // Budi Prasetyo
+      pendidikan: 'Z7sgg6YupGd2FS20j9M2vL',    // Siti Rahmawati
+      otomotif: '11XvD3mq7HlIxXJq9S3TRh',      // Farhan Hakim
+    };
+    const authorRef = authorMap[catKey] || authorMap.nasional;
+    const author = { _type: 'reference' as const, _ref: authorRef };
 
     const doc: any = {
       _type: 'post',
       title: article.title,
       slug: { _type: 'slug', current: slug },
-      subtitle: article.title,
+      subtitle: subtitle,
       excerpt: excerpt,
       body: textToBlocks(article.content),
       mainImage: mainImage,
@@ -219,10 +250,12 @@ async function saveToSanity(article: FetchedArticle): Promise<string | null> {
       metaTitle: seoTitle,
       seoTitle: seoTitle,
       seoDescription: metaDesc,
-      imageCaption: article.sourceName,
-      tableOfContent: false,
+      imageCaption: imageCaption,
+      tableOfContent: true,
       amp: false,
-      komentarPembaca: true, // Selalu aktif
+      komentarPembaca: true,
+      author: author,
+      categories,
     };
 
     const result = await writeClient.create(doc);
@@ -239,14 +272,13 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const limit = parseInt(request.nextUrl.searchParams.get('limit') || '3');
+  const enabledFeeds = RSS_FEEDS.filter((f) => f.enabled);
+  const limit = parseInt(request.nextUrl.searchParams.get('limit') || String(enabledFeeds.length));
   const logs: string[] = [];
   let totalFetched = 0;
   let totalSaved = 0;
 
   logs.push(`Starting fetch at ${new Date().toISOString()}`);
-
-  const enabledFeeds = RSS_FEEDS.filter((f) => f.enabled);
 
   for (const feed of enabledFeeds.slice(0, limit)) {
     logs.push(`\nFetching: ${feed.name}...`);

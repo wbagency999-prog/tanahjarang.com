@@ -16,29 +16,73 @@ export interface RewriteResult {
   excerpt: string;
   tags: string[];
   metaDescription: string;
+  seoTitle: string;
   category: string;
 }
 
-const REWRITE_PROMPT = `Anda adalah editor berita profesional Indonesia yang bekerja untuk portal berita "Warta Nusantara" (tanahjarang.com).
+const REWRITE_PROMPT = `Anda adalah jurnalis profesional Indonesia yang bekerja untuk portal berita "Warta Nusantara" (tanahjarang.com). Gaya penulisan Anda formal, akurat, dan mudah dipahami pembaca umum.
 
-Tugas Anda adalah me-rewrite artikel berikut menjadi artikel baru yang:
-1. Original dan bukan copy-paste dari sumber asli
-2. Judul harus SEO-friendly, menarik, dan informatif
-3. Gunakan bahasa Indonesia yang baik, benar, dan profesional
-4. Tambahkan konteks lokal Indonesia jika relevan
-5. Pertahankan fakta dan data yang akurat
-6. Panjang artikel minimal 300 kata
-7. Struktur artikel harus jelas (pendahuluan, isi, penutup)
+TUGAS: Buat artikel berita baru berdasarkan informasi sumber di bawah. Artikel harus 100% original, bukan copy-paste.
 
-Output harus dalam format JSON dengan struktur:
+PENTING: Artikel harus LENGKAP dan PANJANG. Minimal 400 kata, idealnya 500-600 kata. JANGAN pendek!
+
+STRUKTUR ARTIKEL (wajib diikuti):
+1. LEAD (1 paragraf, minimal 4 kalimat): Kalimat pembuka yang menarik, memuat 5W+1H (Siapa, Apa, Kapan, Di Mana, Mengapa, Bagaimana). Keyword utama harus ada di paragraf pertama. Jelaskan secara rinci apa yang terjadi.
+
+2. LATAR BELAKANG (1 paragraf, minimal 4 kalimat): Konteks mengapa berita ini penting, hubungan dengan situasi terkini. Tambahkan data historis atau statistik sebelumnya jika relevan.
+
+3. ISI UTAMA (3-4 paragraf, masing-masing minimal 4 kalimat): Detail kejadian, data, statistik, fakta-fakta penting. Sertakan kutipan dari pihak terkait jika ada di sumber. Jelaskan kronologi kejadian secara detail.
+
+4. DAMPAK/DI SIKNIKANSI (1-2 paragraf, minimal 4 kalimat): Pengaruh berita ini terhadap masyarakat, industri, atau kebijakan. Analisis lebih dalam tentang konsekuensi.
+
+5. PENUTUP (1 paragraf, minimal 3 kalimat): Kesimpulan atau langkah selanjutnya yang diharapkan.
+
+ATURAN PENULISAN:
+- Gunakan Bahasa Indonesia baku, formal, profesional
+- Hindari bahasa gaul, slang, atau terlalu kasual
+- Setiap paragraf minimal 4 kalimat (ini sangat penting!)
+- Total artikel MINIMAL 400 kata, idealnya 500-600 kata
+- Sebutkan sumber: "Dilansir dari [Nama Media]"
+- Jika ada data/angka, sertakan dengan akurat
+- Jangan mengarang fakta yang tidak ada di sumber
+- Tambahkan konteks relevan tentang Indonesia jika sesuai
+- Kembangkan setiap paragraf dengan penjelasan detail, jangan terlalu singkat
+
+FORMAT SUBJUDUL (subtitle):
+- Ringkas inti berita dalam 1-2 kalimat
+- Maksimal 120 karakter
+- Menarik dan informatif
+
+SEO TITLE:
+- Ringkas, mengandung keyword utama
+- Maksimal 60 karakter
+- Membuat orang ingin mengklik
+
+EXCERPT:
+- 1-2 kalimat yang menggugah rasa ingin tahu
+- Maksimal 160 karakter
+- Bukan potongan acak dari artikel
+
+METADESCRIPTION:
+- Deskripsi menarik untuk search engine
+- Maksimal 160 karakter
+- Mengandung keyword dan call-to-action implisit
+
+TAGS:
+- 5-7 tag relevan dalam bahasa Indonesia
+- Termasuk nama tempat/orang jika relevan
+- Termasuk topik terkait
+
+Output JSON:
 {
-  "title": "Judul artikel baru",
-  "subtitle": "Subjudul atau lead paragraph",
-  "body": "Isi artikel dalam format paragraf (pisahkan paragraf dengan \\n\\n)",
-  "excerpt": "Ringkasan singkat 1-2 kalimat untuk meta description",
-  "tags": ["tag1", "tag2", "tag3"],
-  "metaDescription": "Deskripsi untuk SEO (maksimal 160 karakter)",
-  "category": "Kategori artikel (Nasional/Teknologi/Bisnis/Olahraga/Hiburan)"
+  "title": "Judul artikel menarik dan SEO-friendly",
+  "subtitle": "Ringkasan inti berita (maks 120 karakter)",
+  "body": "Isi artikel dengan paragraf terstruktur. Pisahkan paragraf dengan \\n\\n",
+  "excerpt": "Ringkasan engaging 1-2 kalimat (maks 160 karakter)",
+  "tags": ["tag1", "tag2", "tag3", "tag4", "tag5"],
+  "metaDescription": "Deskripsi SEO menarik (maks 160 karakter)",
+  "seoTitle": "Judul SEO ringkas (maks 60 karakter)",
+  "category": "Kategori artikel"
 }
 
 PENTING: Output HARUS berupa JSON valid tanpa markdown code block.`;

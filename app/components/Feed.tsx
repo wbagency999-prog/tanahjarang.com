@@ -80,7 +80,7 @@ export default function Feed({
           <LoadMorePosts posts={latestWithoutHero} />
         </section>
 
-        <aside className="space-y-6">
+        <aside className="hidden lg:block space-y-6">
           <AdSidebar slotId="feed-sidebar" />
 
           {/* Most Popular with Tabs */}

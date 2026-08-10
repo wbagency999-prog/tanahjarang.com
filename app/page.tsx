@@ -19,7 +19,7 @@ interface Post {
 
 async function getAllPosts(): Promise<Post[]> {
   return client.fetch<Post[]>(
-    `*[_type == "post"] | order(publishedAt desc)[0...200]{
+    `*[_type == "post" && !(_id in path("drafts.**"))] | order(publishedAt desc)[0...200]{
       _id, title, slug, excerpt, mainImage, publishedAt,
       categories[]->{title, slug}, views
     }`
@@ -65,7 +65,7 @@ export default async function Home() {
 
   // Featured: ambil artikel terbaru untuk Hero
   const breakingPosts = await client.fetch<Post[]>(
-    `*[_type == "post"] | order(publishedAt desc)[0...5]{
+    `*[_type == "post" && !(_id in path("drafts.**"))] | order(publishedAt desc)[0...5]{
       _id, title, slug, excerpt, mainImage, publishedAt,
       categories[]->{title, slug}, views
     }`
@@ -74,21 +74,21 @@ export default async function Home() {
   // Popular: 3 time windows
   const [popular24h, popular7d, popularAll] = await Promise.all([
     client.fetch<Post[]>(
-      `*[_type == "post" && views > 0 && publishedAt >= $since] | order(views desc)[0...8]{
+      `*[_type == "post" && !(_id in path("drafts.**")) && views > 0 && publishedAt >= $since] | order(views desc)[0...8]{
         _id, title, slug, excerpt, mainImage, publishedAt,
         categories[]->{title, slug}, views
       }`,
       { since: since24h }
     ),
     client.fetch<Post[]>(
-      `*[_type == "post" && views > 0 && publishedAt >= $since] | order(views desc)[0...8]{
+      `*[_type == "post" && !(_id in path("drafts.**")) && views > 0 && publishedAt >= $since] | order(views desc)[0...8]{
         _id, title, slug, excerpt, mainImage, publishedAt,
         categories[]->{title, slug}, views
       }`,
       { since: since7d }
     ),
     client.fetch<Post[]>(
-      `*[_type == "post" && views > 0] | order(views desc)[0...8]{
+      `*[_type == "post" && !(_id in path("drafts.**")) && views > 0] | order(views desc)[0...8]{
         _id, title, slug, excerpt, mainImage, publishedAt,
         categories[]->{title, slug}, views
       }`
@@ -97,7 +97,7 @@ export default async function Home() {
 
   // Trending: artikel 6 jam terakhir (real-time), sort by views
   const trendingPosts = await client.fetch<Post[]>(
-    `*[_type == "post" && publishedAt >= $since] | order(views desc)[0...5]{
+    `*[_type == "post" && !(_id in path("drafts.**")) && publishedAt >= $since] | order(views desc)[0...5]{
       _id, title, slug, excerpt, mainImage, publishedAt,
       categories[]->{title, slug}, views
     }`,
@@ -108,7 +108,7 @@ export default async function Home() {
   let finalTrending = trendingPosts;
   if (trendingPosts.length < 2) {
     const trending24h = await client.fetch<Post[]>(
-      `*[_type == "post" && publishedAt >= $since] | order(views desc)[0...5]{
+      `*[_type == "post" && !(_id in path("drafts.**")) && publishedAt >= $since] | order(views desc)[0...5]{
         _id, title, slug, excerpt, mainImage, publishedAt,
         categories[]->{title, slug}, views
       }`,
@@ -120,7 +120,7 @@ export default async function Home() {
   // Fallback trending: jika masih kosong, ambil semua waktu
   if (finalTrending.length === 0) {
     finalTrending = await client.fetch<Post[]>(
-      `*[_type == "post"] | order(views desc)[0...5]{
+      `*[_type == "post" && !(_id in path("drafts.**"))] | order(views desc)[0...5]{
         _id, title, slug, excerpt, mainImage, publishedAt,
         categories[]->{title, slug}, views
       }`

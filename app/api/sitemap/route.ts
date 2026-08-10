@@ -2,7 +2,7 @@ import { client } from "@/sanity/client";
 
 export const dynamic = "force-dynamic";
 
-const baseUrl = "https://tanahjarang.com";
+const baseUrl = process.env.SITE_URL || "https://tanahjarang.com";
 
 interface SitemapPost {
   slug: { current: string };

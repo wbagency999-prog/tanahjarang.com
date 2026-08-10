@@ -21,7 +21,7 @@ export const metadata: Metadata = {
   },
 };
 
-const baseUrl = "https://tanahjarang.com";
+const baseUrl = process.env.SITE_URL || "https://tanahjarang.com";
 
 interface Category {
   title: string;

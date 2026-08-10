@@ -1,0 +1,831 @@
+[
+  {
+    "fields": [
+      {
+        "validation": [
+          {
+            "level": "error",
+            "rules": [
+              {
+                "flag": "presence",
+                "constraint": "required"
+              }
+            ]
+          }
+        ],
+        "name": "title",
+        "type": "string",
+        "title": "Judul"
+      },
+      {
+        "options": {
+          "source": "title",
+          "maxLength": 96
+        },
+        "validation": [
+          {
+            "level": "error",
+            "rules": [
+              {
+                "flag": "custom"
+              },
+              {
+                "flag": "presence",
+                "constraint": "required"
+              }
+            ]
+          }
+        ],
+        "name": "slug",
+        "type": "slug"
+      },
+      {
+        "description": "Deskripsi untuk meta description (SEO)",
+        "name": "description",
+        "type": "text",
+        "title": "Deskripsi"
+      },
+      {
+        "validation": [
+          {
+            "level": "error",
+            "rules": [
+              {
+                "flag": "presence",
+                "constraint": "required"
+              }
+            ]
+          }
+        ],
+        "of": [
+          {
+            "lists": [
+              {
+                "value": "bullet",
+                "title": "Bullet"
+              },
+              {
+                "value": "number",
+                "title": "Numbered"
+              }
+            ],
+            "marks": {
+              "annotations": [
+                {
+                  "fields": [
+                    {
+                      "validation": [
+                        {
+                          "level": "error",
+                          "rules": [
+                            {
+                              "flag": "uri",
+                              "constraint": {
+                                "options": {
+                                  "scheme": [
+                                    "/^http$/",
+                                    "/^https$/"
+                                  ],
+                                  "allowRelative": false,
+                                  "relativeOnly": false,
+                                  "allowCredentials": false
+                                }
+                              }
+                            },
+                            {
+                              "flag": "presence",
+                              "constraint": "required"
+                            }
+                          ]
+                        }
+                      ],
+                      "name": "href",
+                      "type": "url",
+                      "title": "URL"
+                    }
+                  ],
+                  "name": "link",
+                  "type": "object",
+                  "title": "URL"
+                }
+              ],
+              "decorators": [
+                {
+                  "value": "strong",
+                  "title": "Bold"
+                },
+                {
+                  "value": "em",
+                  "title": "Italic"
+                },
+                {
+                  "value": "underline",
+                  "title": "Underline"
+                },
+                {
+                  "value": "code",
+                  "title": "Code"
+                }
+              ]
+            },
+            "of": [],
+            "styles": [
+              {
+                "value": "normal",
+                "title": "Normal"
+              },
+              {
+                "value": "h2",
+                "title": "Heading 2"
+              },
+              {
+                "value": "h3",
+                "title": "Heading 3"
+              },
+              {
+                "value": "h4",
+                "title": "Heading 4"
+              },
+              {
+                "value": "blockquote",
+                "title": "Quote"
+              }
+            ],
+            "type": "block"
+          },
+          {
+            "options": {
+              "hotspot": true
+            },
+            "fields": [
+              {
+                "name": "alt",
+                "type": "string",
+                "title": "Alt Text"
+              },
+              {
+                "name": "caption",
+                "type": "string"
+              }
+            ],
+            "type": "image"
+          }
+        ],
+        "name": "body",
+        "type": "array",
+        "title": "Konten"
+      }
+    ],
+    "name": "page",
+    "type": "document",
+    "title": "Halaman"
+  },
+  {
+    "fields": [
+      {
+        "validation": [
+          {
+            "level": "error",
+            "rules": [
+              {
+                "flag": "presence",
+                "constraint": "required"
+              }
+            ],
+            "message": "Judul wajib diisi"
+          }
+        ],
+        "name": "title",
+        "type": "string",
+        "title": "Judul"
+      },
+      {
+        "validation": [
+          {
+            "level": "error",
+            "rules": [
+              {
+                "flag": "max",
+                "constraint": 120
+              }
+            ],
+            "message": "Sub judul maksimal 120 karakter"
+          }
+        ],
+        "description": "Maksimal 120 karakter. Tampil di bawah judul utama.",
+        "name": "subtitle",
+        "type": "string",
+        "title": "Sub Judul"
+      },
+      {
+        "options": {
+          "source": "title",
+          "maxLength": 96
+        },
+        "validation": [
+          {
+            "level": "error",
+            "rules": [
+              {
+                "flag": "custom"
+              },
+              {
+                "flag": "presence",
+                "constraint": "required"
+              }
+            ],
+            "message": "Slug wajib diisi"
+          }
+        ],
+        "name": "slug",
+        "type": "slug"
+      },
+      {
+        "rows": 3,
+        "validation": [
+          {
+            "level": "error",
+            "rules": [
+              {
+                "flag": "presence",
+                "constraint": "required"
+              }
+            ],
+            "message": "Excerpt wajib diisi"
+          }
+        ],
+        "description": "Ringkasan singkat artikel untuk preview",
+        "name": "excerpt",
+        "type": "text"
+      },
+      {
+        "validation": [
+          {
+            "level": "error",
+            "rules": [
+              {
+                "flag": "presence",
+                "constraint": "required"
+              }
+            ],
+            "message": "Konten wajib diisi"
+          }
+        ],
+        "of": [
+          {
+            "lists": [
+              {
+                "value": "bullet",
+                "title": "Bullet"
+              },
+              {
+                "value": "number",
+                "title": "Numbered"
+              }
+            ],
+            "marks": {
+              "annotations": [
+                {
+                  "fields": [
+                    {
+                      "validation": [
+                        {
+                          "level": "error",
+                          "rules": [
+                            {
+                              "flag": "uri",
+                              "constraint": {
+                                "options": {
+                                  "scheme": [
+                                    "/^http$/",
+                                    "/^https$/"
+                                  ],
+                                  "allowRelative": false,
+                                  "relativeOnly": false,
+                                  "allowCredentials": false
+                                }
+                              }
+                            },
+                            {
+                              "flag": "presence",
+                              "constraint": "required"
+                            }
+                          ]
+                        }
+                      ],
+                      "name": "href",
+                      "type": "url",
+                      "title": "URL"
+                    }
+                  ],
+                  "name": "link",
+                  "type": "object",
+                  "title": "URL"
+                }
+              ],
+              "decorators": [
+                {
+                  "value": "strong",
+                  "title": "Bold"
+                },
+                {
+                  "value": "em",
+                  "title": "Italic"
+                },
+                {
+                  "value": "underline",
+                  "title": "Underline"
+                },
+                {
+                  "value": "code",
+                  "title": "Code"
+                }
+              ]
+            },
+            "of": [],
+            "styles": [
+              {
+                "value": "normal",
+                "title": "Normal"
+              },
+              {
+                "value": "h2",
+                "title": "Heading 2"
+              },
+              {
+                "value": "h3",
+                "title": "Heading 3"
+              },
+              {
+                "value": "h4",
+                "title": "Heading 4"
+              },
+              {
+                "value": "blockquote",
+                "title": "Quote"
+              }
+            ],
+            "type": "block"
+          },
+          {
+            "options": {
+              "hotspot": true
+            },
+            "fields": [
+              {
+                "name": "alt",
+                "type": "string",
+                "title": "Alt Text"
+              },
+              {
+                "name": "caption",
+                "type": "string"
+              }
+            ],
+            "type": "image"
+          }
+        ],
+        "name": "body",
+        "type": "array",
+        "title": "Konten"
+      },
+      {
+        "options": {
+          "layout": "tags"
+        },
+        "description": "Kata kunci terkait artikel",
+        "of": [
+          {
+            "type": "string"
+          }
+        ],
+        "name": "tags",
+        "type": "array",
+        "title": "Tag"
+      },
+      {
+        "options": {
+          "hotspot": true
+        },
+        "validation": [
+          {
+            "level": "error",
+            "rules": [
+              {
+                "flag": "presence",
+                "constraint": "required"
+              }
+            ],
+            "message": "Gambar utama wajib diisi"
+          }
+        ],
+        "name": "mainImage",
+        "type": "image",
+        "title": "Gambar Utama"
+      },
+      {
+        "description": "Caption/credit gambar utama. Format: \"Deskripsi | Foto: [Sumber]\"",
+        "name": "imageCaption",
+        "type": "string",
+        "title": "Caption Gambar"
+      },
+      {
+        "validation": [
+          {
+            "level": "error",
+            "rules": [
+              {
+                "flag": "max",
+                "constraint": 60
+              }
+            ],
+            "message": "SEO Title maksimal 60 karakter"
+          }
+        ],
+        "description": "Judul untuk search engine. Maks 60 karakter.",
+        "name": "seoTitle",
+        "type": "string",
+        "title": "SEO Title"
+      },
+      {
+        "rows": 3,
+        "validation": [
+          {
+            "level": "error",
+            "rules": [
+              {
+                "flag": "max",
+                "constraint": 160
+              }
+            ],
+            "message": "SEO Description maksimal 160 karakter"
+          }
+        ],
+        "description": "Deskripsi untuk search engine. Maks 160 karakter.",
+        "name": "seoDescription",
+        "type": "text",
+        "title": "SEO Description"
+      },
+      {
+        "hidden": true,
+        "name": "metaTitle",
+        "type": "string"
+      },
+      {
+        "hidden": true,
+        "name": "metaDescription",
+        "type": "text"
+      },
+      {
+        "validation": [
+          {
+            "level": "error",
+            "rules": [
+              {
+                "flag": "presence",
+                "constraint": "required"
+              }
+            ],
+            "message": "Tanggal publish wajib diisi"
+          }
+        ],
+        "name": "publishedAt",
+        "type": "datetime",
+        "title": "Tanggal Publish"
+      },
+      {
+        "validation": [
+          {
+            "level": "error",
+            "rules": [
+              {
+                "flag": "presence",
+                "constraint": "required"
+              }
+            ],
+            "message": "Penulis wajib diisi"
+          }
+        ],
+        "to": [
+          {
+            "type": "author"
+          }
+        ],
+        "name": "author",
+        "type": "reference",
+        "title": "Penulis"
+      },
+      {
+        "validation": [
+          {
+            "level": "error",
+            "rules": [
+              {
+                "flag": "min",
+                "constraint": 1
+              }
+            ],
+            "message": "Minimal 1 kategori wajib dipilih"
+          }
+        ],
+        "of": [
+          {
+            "to": [
+              {
+                "type": "category"
+              }
+            ],
+            "type": "reference",
+            "title": "Reference to kategori"
+          }
+        ],
+        "name": "categories",
+        "type": "array",
+        "title": "Kategori"
+      },
+      {
+        "options": {
+          "list": [
+            {
+              "title": "Pending Review",
+              "value": "pending-review"
+            },
+            {
+              "title": "Ready for Review",
+              "value": "ready-for-review"
+            },
+            {
+              "title": "Approved",
+              "value": "approved"
+            },
+            {
+              "title": "Published",
+              "value": "published"
+            },
+            {
+              "title": "Rejected",
+              "value": "rejected"
+            }
+          ]
+        },
+        "initialValue": "pending-review",
+        "name": "pipelineStatus",
+        "type": "string",
+        "title": "Status Pipeline"
+      },
+      {
+        "initialValue": false,
+        "name": "amp",
+        "type": "boolean",
+        "title": "AMP"
+      },
+      {
+        "initialValue": true,
+        "name": "komentarPembaca",
+        "type": "boolean"
+      },
+      {
+        "initialValue": false,
+        "name": "tableOfContent",
+        "type": "boolean",
+        "title": "Daftar Isi"
+      },
+      {
+        "options": {
+          "list": [
+            {
+              "title": "Fakta",
+              "value": "fakta"
+            },
+            {
+              "title": "Hoaks",
+              "value": "hoaks"
+            },
+            {
+              "title": "Belum Diverifikasi",
+              "value": "unverified"
+            }
+          ]
+        },
+        "initialValue": "unverified",
+        "name": "factCheck",
+        "type": "string"
+      },
+      {
+        "initialValue": 0,
+        "hidden": true,
+        "name": "views",
+        "type": "number"
+      },
+      {
+        "validation": [
+          {
+            "level": "error",
+            "rules": [
+              {
+                "flag": "uri",
+                "constraint": {
+                  "options": {
+                    "scheme": [
+                      "/^http$/",
+                      "/^https$/"
+                    ],
+                    "allowRelative": false,
+                    "relativeOnly": false,
+                    "allowCredentials": false
+                  }
+                }
+              }
+            ]
+          }
+        ],
+        "hidden": true,
+        "name": "originalUrl",
+        "type": "url",
+        "title": "URL Asli"
+      },
+      {
+        "hidden": true,
+        "name": "sourceName",
+        "type": "string",
+        "title": "Sumber"
+      },
+      {
+        "initialValue": false,
+        "hidden": true,
+        "name": "aiDisclosure",
+        "type": "boolean",
+        "title": "AI Disclosure"
+      },
+      {
+        "initialValue": false,
+        "hidden": true,
+        "name": "aiRewritten",
+        "type": "boolean",
+        "title": "AI Rewritten"
+      },
+      {
+        "fields": [
+          {
+            "name": "model",
+            "type": "string"
+          },
+          {
+            "name": "rewrittenAt",
+            "type": "datetime"
+          },
+          {
+            "name": "originalTitle",
+            "type": "string"
+          }
+        ],
+        "hidden": true,
+        "name": "aiMetadata",
+        "type": "object",
+        "title": "AI Metadata"
+      }
+    ],
+    "name": "post",
+    "type": "document"
+  },
+  {
+    "fields": [
+      {
+        "validation": [
+          {
+            "level": "error",
+            "rules": [
+              {
+                "flag": "presence",
+                "constraint": "required"
+              }
+            ]
+          }
+        ],
+        "name": "name",
+        "type": "string",
+        "title": "Nama"
+      },
+      {
+        "options": {
+          "source": "name",
+          "maxLength": 96
+        },
+        "validation": [
+          {
+            "level": "error",
+            "rules": [
+              {
+                "flag": "custom"
+              },
+              {
+                "flag": "presence",
+                "constraint": "required"
+              }
+            ]
+          }
+        ],
+        "name": "slug",
+        "type": "slug"
+      },
+      {
+        "options": {
+          "hotspot": true
+        },
+        "name": "image",
+        "type": "image",
+        "title": "Foto"
+      },
+      {
+        "rows": 4,
+        "name": "bio",
+        "type": "text"
+      },
+      {
+        "options": {
+          "list": [
+            {
+              "title": "Kepala Redaksi",
+              "value": "Kepala Redaksi"
+            },
+            {
+              "title": "Redaktur",
+              "value": "Redaktur"
+            },
+            {
+              "title": "Reporter",
+              "value": "Reporter"
+            },
+            {
+              "title": "Kontributor",
+              "value": "Kontributor"
+            }
+          ]
+        },
+        "name": "role",
+        "type": "string",
+        "title": "Jabatan"
+      },
+      {
+        "initialValue": false,
+        "name": "verified",
+        "type": "boolean",
+        "title": "Terverifikasi"
+      }
+    ],
+    "name": "author",
+    "type": "document",
+    "title": "Penulis"
+  },
+  {
+    "fields": [
+      {
+        "validation": [
+          {
+            "level": "error",
+            "rules": [
+              {
+                "flag": "presence",
+                "constraint": "required"
+              }
+            ]
+          }
+        ],
+        "name": "title",
+        "type": "string",
+        "title": "Judul"
+      },
+      {
+        "options": {
+          "source": "title",
+          "maxLength": 96
+        },
+        "validation": [
+          {
+            "level": "error",
+            "rules": [
+              {
+                "flag": "custom"
+              },
+              {
+                "flag": "presence",
+                "constraint": "required"
+              }
+            ]
+          }
+        ],
+        "name": "slug",
+        "type": "slug"
+      },
+      {
+        "rows": 3,
+        "name": "description",
+        "type": "text",
+        "title": "Deskripsi"
+      }
+    ],
+    "name": "category",
+    "type": "document",
+    "title": "Kategori"
+  }
+]

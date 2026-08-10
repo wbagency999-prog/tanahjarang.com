@@ -40,9 +40,9 @@ export default function Hero({ featured, topArticles }: { featured: Post; topArt
         </div>
       </a>
 
-      {/* Top Artikel Sidebar */}
+      {/* Top Artikel Sidebar — hidden di mobile */}
       {sideItems.length > 0 && (
-        <div className="flex h-full flex-col overflow-hidden rounded-lg border border-black/10 bg-white">
+        <div className="hidden lg:flex h-full flex-col overflow-hidden rounded-lg border border-black/10 bg-white">
           <div className="border-b border-black/10 bg-gradient-to-r from-[#CC181F]/[.06] to-transparent px-4 py-2.5">
             <p className="text-xs font-bold uppercase tracking-wide text-[#CC181F]">🔥 Top Artikel</p>
           </div>

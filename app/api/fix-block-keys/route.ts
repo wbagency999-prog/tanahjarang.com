@@ -3,7 +3,7 @@
 //  Jalankan sekali untuk fix semua artikel existing
 // ═══════════════════════════════════════════════════════════
 
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { client } from '@/sanity/client'
 import { writeClient } from '@/sanity/writeClient'
 
@@ -54,7 +54,13 @@ function fixBioBlocks(bio: any[]): any[] {
   return fixBlockKeys(bio)
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const secret = request.nextUrl.searchParams.get('secret')
+  const pipelineSecret = process.env.PIPELINE_SECRET
+  if (!pipelineSecret || secret !== pipelineSecret) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
   const logs: string[] = []
   let fixedPosts = 0
   let fixedAuthors = 0

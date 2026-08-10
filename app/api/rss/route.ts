@@ -35,7 +35,7 @@ export async function GET() {
     }`
   );
 
-  const baseUrl = "https://tanahjarang.com";
+  const baseUrl = process.env.SITE_URL || "https://tanahjarang.com";
 
   const items = posts
     .map((post) => {

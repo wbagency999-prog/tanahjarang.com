@@ -1,0 +1,1 @@
+import{t as e}from"./_baseIsEqual-D4eQMMxj.js";function t(t,n){return e(t,n)}export{t};

@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { client } from "@/sanity/client";
 import { notFound } from "next/navigation";
 import Feed from "../components/Feed";
@@ -8,6 +9,55 @@ import { urlFor } from "@/sanity/image";
 import { waktuLalu } from "../lib/waktuLalu";
 
 export const dynamic = "force-dynamic";
+
+const CATEGORY_DESCRIPTIONS: Record<string, string> = {
+  nasional: "Berita terkini seputar politik, hukum, dan kebijakan nasional Indonesia.",
+  internasional: "Kabar dan analisis terbaru dari kancah internasional.",
+  teknologi: "Informasi terkini seputar inovasi, gadget, dan perkembangan digital.",
+  olahraga: "Kabar terbaru dari dunia sepak bola, bulu tangkis, dan olahraga lainnya.",
+  hiburan: "Berita hiburan terkini dari dunia selebriti, film, dan musik.",
+  bisnis: "Informasi terbaru seputar ekonomi, pasar modal, dan peluang usaha.",
+  pendidikan: "Kabar terkini dari dunia pendidikan, beasiswa, dan tips belajar.",
+  otomotif: "Informasi terbaru seputar kendaraan baru, tips otomotif, dan industri otomotif.",
+};
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ category: string }>;
+}): Promise<Metadata> {
+  const { category } = await params;
+  const cat = await getCategory(category);
+  const baseUrl = process.env.SITE_URL || "https://tanahjarang.com";
+  const url = `${baseUrl}/${category}`;
+
+  if (!cat) {
+    return {
+      title: "Kategori Tidak Ditemukan | Warta Nusantara",
+      description: "Kategori yang Anda cari tidak ditemukan.",
+      alternates: { canonical: url },
+    };
+  }
+
+  const description =
+    cat.description ||
+    CATEGORY_DESCRIPTIONS[category] ||
+    `Berita terkini kategori ${cat.title} di Warta Nusantara.`;
+
+  return {
+    title: `${cat.title} - Berita Terkini | Warta Nusantara`,
+    description,
+    alternates: { canonical: url },
+    openGraph: {
+      title: `${cat.title} - Berita Terkini`,
+      description,
+      type: "website",
+      url,
+      siteName: "Warta Nusantara",
+      locale: "id_ID",
+    },
+  };
+}
 
 interface Post {
   _id: string;
@@ -34,14 +84,14 @@ async function getCategory(category: string): Promise<Category | null> {
 
 async function getTotalPosts(category: string): Promise<number> {
   return client.fetch(
-    `count(*[_type == "post" && $category in categories[]->slug.current])`,
+    `count(*[_type == "post" && !(_id in path("drafts.**")) && $category in categories[]->slug.current])`,
     { category }
   );
 }
 
 async function getAllPostsByCategory(category: string): Promise<Post[]> {
   return client.fetch(
-    `*[_type == "post" && $category in categories[]->slug.current] | order(publishedAt desc)[0...200]{
+    `*[_type == "post" && !(_id in path("drafts.**")) && $category in categories[]->slug.current] | order(publishedAt desc)[0...200]{
       _id, title, slug, excerpt, mainImage, publishedAt,
       categories[]->{title, slug}, views
     }`,

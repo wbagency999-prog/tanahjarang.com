@@ -147,16 +147,17 @@ export default async function AuthorsPage() {
   const kontributor = allAuthors.filter((a) => a.role?.includes("Kontributor"));
 
   // JSON-LD
+  const baseUrl = process.env.SITE_URL || "https://tanahjarang.com";
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "ItemList",
     name: "Tim Redaksi Warta Nusantara",
     description: "Daftar jurnalis profesional Warta Nusantara",
-    url: "https://tanahjarang.com/authors",
+    url: `${baseUrl}/authors`,
     itemListElement: allAuthors.map((a, i) => ({
       "@type": "ListItem",
       position: i + 1,
-      url: `https://tanahjarang.com/author/${a.slug.current}`,
+      url: `${baseUrl}/author/${a.slug.current}`,
       name: a.name,
     })),
   };

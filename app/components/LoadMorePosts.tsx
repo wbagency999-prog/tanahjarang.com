@@ -40,7 +40,7 @@ export default function LoadMorePosts({ posts }: { posts: Post[] }) {
         {shown.map((post, i) => (
           <React.Fragment key={post._id}>
             <a href={post.slug ? articleHref(post) : "#"} className="article-card flex gap-4 rounded-lg p-3 last:border-0">
-              <div className="aspect-[4/3] w-32 shrink-0 overflow-hidden rounded bg-[#1A1815]/10 sm:w-48">
+              <div className="aspect-[4/3] w-20 shrink-0 overflow-hidden rounded bg-[#1A1815]/10 sm:w-32">
                 {post.mainImage && (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={urlFor(post.mainImage).width(400).url()} alt={post.title} width={192} height={144} loading="lazy" className="h-full w-full object-cover" />
@@ -50,8 +50,8 @@ export default function LoadMorePosts({ posts }: { posts: Post[] }) {
                 {post.categories?.[0] && (
                   <span className="rounded bg-[#CC181F]/10 px-2 py-0.5 text-xs font-semibold text-[#CC181F]">{post.categories[0].title}</span>
                 )}
-                <h4 className="mt-2 text-lg font-bold leading-snug">{post.title}</h4>
-                <p className="mt-1 text-sm text-[#1A1815]/60 line-clamp-2">{post.excerpt}</p>
+                <h4 className="mt-2 text-base font-bold leading-snug sm:text-lg">{post.title}</h4>
+                <p className="mt-1 text-xs text-[#1A1815]/60 line-clamp-2 sm:text-sm">{post.excerpt}</p>
                 <p className="mt-2 text-xs text-[#1A1815]/40">{waktuLalu(post.publishedAt)} · {post.views ?? 0}x dibaca</p>
               </div>
             </a>

@@ -97,11 +97,12 @@ export default async function AuthorProfile({ params }: { params: Promise<{ slug
   const totalViews = posts.reduce((sum, p) => sum + (p.views ?? 0), 0);
 
   // JSON-LD Structured Data
+  const baseUrl = process.env.SITE_URL || "https://tanahjarang.com";
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "Person",
     name: author.name,
-    url: `https://tanahjarang.com/author/${author.slug.current}`,
+    url: `${baseUrl}/author/${author.slug.current}`,
     image: author.image ? urlFor(author.image).width(400).height(400).url() : undefined,
     jobTitle: author.role || undefined,
     description: typeof author.bio === "string" ? author.bio : undefined,

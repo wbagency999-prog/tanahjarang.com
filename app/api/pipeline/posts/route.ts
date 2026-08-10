@@ -64,10 +64,16 @@ export async function PATCH(request: NextRequest) {
   }
 
   try {
+    // Patch pipelineStatus
     await writeClient
       .patch(postId)
       .set({ pipelineStatus: status })
       .commit();
+
+    // Jika status "published", publish dokumen dari draft ke published
+    if (status === 'published') {
+      await writeClient.publish(postId);
+    }
 
     return NextResponse.json({ success: true });
   } catch (error: any) {
