@@ -96,6 +96,12 @@ async function fetchFeed(feed: typeof RSS_FEEDS[0]): Promise<FetchedArticle[]> {
       // Bersihkan HTML tags untuk text
       let cleanText = rawContent
         .replace(/<[^>]*>/g, ' ')
+        .replace(/&nbsp;/g, ' ')
+        .replace(/&amp;/g, '&')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&quot;/g, '"')
+        .replace(/&#39;/g, "'")
         .replace(/\s+/g, ' ')
         .trim();
 
@@ -185,6 +191,7 @@ async function saveToSanity(article: FetchedArticle): Promise<string | null> {
         mainImage = {
           _type: 'image',
           asset: { _type: 'reference', _ref: assetId },
+          alt: article.title.substring(0, 125),
         };
       }
     }
@@ -248,8 +255,10 @@ async function saveToSanity(article: FetchedArticle): Promise<string | null> {
       aiDisclosure: false,
       metaDescription: metaDesc,
       metaTitle: seoTitle,
-      seoTitle: seoTitle,
-      seoDescription: metaDesc,
+      seo: {
+        seoTitle: seoTitle,
+        seoDescription: metaDesc,
+      },
       imageCaption: imageCaption,
       tableOfContent: true,
       amp: false,
@@ -258,7 +267,11 @@ async function saveToSanity(article: FetchedArticle): Promise<string | null> {
       categories,
     };
 
-    const result = await writeClient.create(doc);
+    const docId = `post-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+    const result = await writeClient.createIfNotExists({
+      _id: docId,
+      ...doc,
+    });
     return result._id;
   } catch (error: any) {
     console.error('Error saving:', error.message);

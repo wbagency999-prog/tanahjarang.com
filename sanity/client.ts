@@ -8,7 +8,7 @@ export function getClient(): SanityClient {
       projectId: '7kf72dsd',
       dataset: 'production',
       apiVersion: '2024-01-01',
-      useCdn: true,
+      useCdn: false,
     })
   }
   return _client

@@ -70,9 +70,25 @@ export async function PATCH(request: NextRequest) {
       .set({ pipelineStatus: status })
       .commit();
 
-    // Jika status "published", publish dokumen dari draft ke published
+    // Jika status "published", publish dokumen dari draft ke published via HTTP API
     if (status === 'published') {
-      await writeClient.publish(postId);
+      const projectId = '7kf72dsd';
+      const dataset = 'production';
+      const token = process.env.SANITY_API_WRITE_TOKEN;
+      const publishUrl = `https://${projectId}.api.sanity.io/v2024-01-01/data/publish/${dataset}/${postId}`;
+
+      const publishRes = await fetch(publishUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!publishRes.ok) {
+        const errText = await publishRes.text();
+        console.error('Publish error:', publishRes.status, errText);
+      }
     }
 
     return NextResponse.json({ success: true });
