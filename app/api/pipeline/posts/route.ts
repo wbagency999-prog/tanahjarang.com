@@ -64,31 +64,34 @@ export async function PATCH(request: NextRequest) {
   }
 
   try {
-    // Patch pipelineStatus
-    await writeClient
-      .patch(postId)
-      .set({ pipelineStatus: status })
-      .commit();
-
-    // Jika status "published", publish dokumen dari draft ke published via HTTP API
     if (status === 'published') {
-      const projectId = '7kf72dsd';
-      const dataset = 'production';
-      const token = process.env.SANITY_API_WRITE_TOKEN;
-      const publishUrl = `https://${projectId}.api.sanity.io/v2024-01-01/data/publish/${dataset}/${postId}`;
+      // Baca document lengkap
+      const fullPost = await client.fetch<any>(
+        `*[_id == $id][0]`,
+        { id: postId }
+      );
 
-      const publishRes = await fetch(publishUrl, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (!publishRes.ok) {
-        const errText = await publishRes.text();
-        console.error('Publish error:', publishRes.status, errText);
+      if (!fullPost) {
+        return NextResponse.json({ error: 'Document not found' }, { status: 404 });
       }
+
+      // Hapus draft
+      await writeClient.delete(postId);
+
+      // Buat published version
+      const publishedId = postId.replace('drafts.', '');
+      const { _id, _rev, _type, ...data } = fullPost;
+      await writeClient.createIfNotExists({
+        _id: publishedId,
+        _type,
+        ...data,
+        pipelineStatus: 'published',
+      });
+    } else {
+      await writeClient
+        .patch(postId)
+        .set({ pipelineStatus: status })
+        .commit();
     }
 
     return NextResponse.json({ success: true });

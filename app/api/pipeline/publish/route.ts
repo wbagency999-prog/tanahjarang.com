@@ -34,33 +34,34 @@ export async function GET(request: NextRequest) {
     logs.push(`\nPublishing: ${post.title.substring(0, 50)}...`);
 
     try {
-      // Step 1: Update pipelineStatus dulu
-      await writeClient
-        .patch(post._id)
-        .set({ pipelineStatus: 'published' })
-        .commit();
+      // Baca draft document lengkap
+      const fullPost = await client.fetch<any>(
+        `*[_id == $id][0]`,
+        { id: post._id }
+      );
 
-      // Step 2: Publish dokumen dari draft ke published via HTTP API
-      const projectId = '7kf72dsd';
-      const dataset = 'production';
-      const token = process.env.SANITY_API_WRITE_TOKEN;
-      const publishUrl = `https://${projectId}.api.sanity.io/v2024-01-01/data/publish/${dataset}/${post._id}`;
-
-      const publishRes = await fetch(publishUrl, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (!publishRes.ok) {
-        const errText = await publishRes.text();
-        logs.push(`  ⚠ Publish API error: ${publishRes.status} - ${errText}`);
-      } else {
-        published++;
-        logs.push(`  ✓ Published: ${post.title}`);
+      if (!fullPost) {
+        logs.push(`  ✗ Document not found: ${post._id}`);
+        failed++;
+        continue;
       }
+
+      // Hapus draft
+      await writeClient.delete(post._id);
+      logs.push(`  ✓ Draft deleted`);
+
+      // Buat published version (tanpa prefix drafts.)
+      const publishedId = post._id.replace('drafts.', '');
+      const { _id, _rev, _type, ...data } = fullPost;
+      await writeClient.createIfNotExists({
+        _id: publishedId,
+        _type,
+        ...data,
+        pipelineStatus: 'published',
+      });
+      logs.push(`  ✓ Published as: ${publishedId}`);
+
+      published++;
     } catch (error: any) {
       failed++;
       logs.push(`  ✗ Error: ${error.message}`);

@@ -269,7 +269,7 @@ async function saveToSanity(article: FetchedArticle): Promise<string | null> {
 
     const docId = `post-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
     const result = await writeClient.createIfNotExists({
-      _id: docId,
+      _id: `drafts.${docId}`,
       ...doc,
     });
     return result._id;
