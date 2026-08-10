@@ -20,15 +20,16 @@ export async function GET(request: NextRequest) {
 
   logs.push(`Starting publish at ${new Date().toISOString()}`);
 
-  // Ambil artikel dengan status approved (sudah di-review editor)
-  const posts = await client.fetch<{ _id: string; title: string }[]>(
-    `*[_type == "post" && pipelineStatus == "approved"] | order(publishedAt desc)[0...10]{
+  // Ambil SEMUA draft articles (sudah final dari fetch)
+  const posts = await client.fetch<{ _id: string; title: string; full: any }[]>(
+    `*[_type == "post" && _id in path("drafts.**")] | order(publishedAt desc)[0...50]{
       _id,
-      title
+      title,
+      ...
     }`
   );
 
-  logs.push(`Found ${posts.length} approved articles to publish`);
+  logs.push(`Found ${posts.length} draft articles to publish`);
 
   for (const post of posts) {
     logs.push(`\nPublishing: ${post.title.substring(0, 50)}...`);
