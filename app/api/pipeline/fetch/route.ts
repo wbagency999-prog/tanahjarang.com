@@ -7,6 +7,7 @@ import Parser from 'rss-parser';
 import { client } from '@/sanity/client';
 import { writeClient } from '@/sanity/writeClient';
 import { RSS_FEEDS, FILTER_KEYWORDS } from '@/lib/rss-feeds';
+import { rewriteArticle, type RewriteResult } from '@/lib/ai-rewriter';
 
 export const dynamic = 'force-dynamic';
 
@@ -180,10 +181,21 @@ function generateSlug(title: string): string {
     .substring(0, 100);
 }
 
-// Simpan ke Sanity
+// Convert plain text ke Portable Text blocks
+function textToBlocks(text: string): any[] {
+  return text.split(/\n\n+/).filter(Boolean).map((p, i) => ({
+    _type: 'block',
+    _key: `body-${i}`,
+    style: 'normal',
+    children: [{ _type: 'span', _key: `span-${i}`, text: p.trim() }],
+    markDefs: [],
+  }));
+}
+
+// Simpan ke Sanity + AI Rewrite
 async function saveToSanity(article: FetchedArticle): Promise<string | null> {
   try {
-    // Upload gambar - WAJIB
+    // Upload gambar
     let mainImage: any = undefined;
     if (article.imageUrl) {
       const assetId = await uploadImage(article.imageUrl);
@@ -196,20 +208,12 @@ async function saveToSanity(article: FetchedArticle): Promise<string | null> {
       }
     }
 
-    // Skip jika tidak ada gambar
     if (!mainImage) {
       console.log('Skipping article without image:', article.title);
       return null;
     }
 
-    const slug = generateSlug(article.title);
-    const excerpt = article.excerpt || article.content.substring(0, 200);
-    const metaDesc = excerpt.substring(0, 160);
-    const seoTitle = article.title.substring(0, 60); // Max 60 karakter
-    const subtitle = article.title.substring(0, 120); // Max 120 karakter
-    const imageCaption = `${article.title} | Foto: ${article.sourceName}`;
-
-    // Detect category from article
+    // Category & Author mapping
     const categoryMap: Record<string, string> = {
       nasional: 'kF0pH8zAeRz6etg9XEHvmR',
       internasional: 'vG7OWidh2JKCGmChuCBMZo',
@@ -220,51 +224,86 @@ async function saveToSanity(article: FetchedArticle): Promise<string | null> {
       pendidikan: 'vG7OWidh2JKCGmChuCBMmJ',
       otomotif: 'c669d085-a81e-45ac-8057-12a955e6e20a',
     };
+    const authorMap: Record<string, string> = {
+      nasional: 'Z7sgg6YupGd2FS20j7fQ5s',
+      internasional: 'Z7sgg6YupGd2FS20j9M4S6',
+      teknologi: '11XvD3mq7HlIxXJq9S3Snm',
+      olahraga: '11XvD3mq7HlIxXJq9S3P58',
+      hiburan: '11XvD3mq7HlIxXJq9S3QIX',
+      bisnis: '11XvD3mq7HlIxXJq9S3NDo',
+      pendidikan: 'Z7sgg6YupGd2FS20j9M2vL',
+      otomotif: '11XvD3mq7HlIxXJq9S3TRh',
+    };
     const catKey = article.category.toLowerCase();
     const catId = categoryMap[catKey] || categoryMap.nasional;
-    const categories = [{ _type: 'reference' as const, _ref: catId, _key: `cat-${catId}` }];
-
-    // Author per kategori
-    const authorMap: Record<string, string> = {
-      nasional: 'Z7sgg6YupGd2FS20j7fQ5s',     // Warta Nusantara
-      internasional: 'Z7sgg6YupGd2FS20j9M4S6', // Hendra Wijaya
-      teknologi: '11XvD3mq7HlIxXJq9S3Snm',     // Dimas Kurniawan
-      olahraga: '11XvD3mq7HlIxXJq9S3P58',      // Rizky Aditya
-      hiburan: '11XvD3mq7HlIxXJq9S3QIX',       // Maya Putri
-      bisnis: '11XvD3mq7HlIxXJq9S3NDo',        // Budi Prasetyo
-      pendidikan: 'Z7sgg6YupGd2FS20j9M2vL',    // Siti Rahmawati
-      otomotif: '11XvD3mq7HlIxXJq9S3TRh',      // Farhan Hakim
-    };
     const authorRef = authorMap[catKey] || authorMap.nasional;
-    const author = { _type: 'reference' as const, _ref: authorRef };
+
+    // AI Rewrite
+    let rewritten: RewriteResult | null = null;
+    try {
+      rewritten = await rewriteArticle(
+        article.title,
+        article.content,
+        article.sourceName,
+        article.category
+      );
+    } catch (e: any) {
+      console.log('AI rewrite failed, using original:', e.message);
+    }
+
+    // Build document dari hasil rewrite atau original
+    const title = rewritten?.title || article.title;
+    const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').substring(0, 100);
+    const body = rewritten?.body ? textToBlocks(rewritten.body) : textToBlocks(article.content);
+    const excerpt = rewritten?.excerpt || article.excerpt || article.content.substring(0, 200);
+    const metaDesc = (rewritten?.metaDescription || excerpt).substring(0, 160);
+    const seoTitle = (rewritten?.seoTitle || title).substring(0, 60);
 
     const doc: any = {
       _type: 'post',
-      title: article.title,
+      title,
       slug: { _type: 'slug', current: slug },
-      subtitle: subtitle,
-      excerpt: excerpt,
-      body: textToBlocks(article.content),
-      mainImage: mainImage,
+      subtitle: (rewritten?.subtitle || title).substring(0, 120),
+      excerpt,
+      body,
+      mainImage: {
+        ...mainImage,
+        alt: rewritten?.mainImageAlt || title.substring(0, 125),
+      },
       publishedAt: new Date(article.pubDate).toISOString(),
       originalUrl: article.link,
       sourceName: article.sourceName,
       pipelineStatus: 'pending-review',
-      tags: [],
+      tags: rewritten?.tags || [],
       views: 0,
-      aiDisclosure: false,
+      aiDisclosure: true,
+      aiRewritten: !!rewritten,
+      komentarPembaca: true,
+      amp: false,
+      tableOfContent: true,
       metaDescription: metaDesc,
       metaTitle: seoTitle,
+      focusKeyphrase: rewritten?.focusKeyphrase || '',
       seo: {
-        seoTitle: seoTitle,
+        seoTitle,
         seoDescription: metaDesc,
+        ogDescription: rewritten?.ogDescription || excerpt.substring(0, 200),
       },
-      imageCaption: imageCaption,
-      tableOfContent: true,
-      amp: false,
-      komentarPembaca: true,
-      author: author,
-      categories,
+      imageCaption: `${title} | Foto: ${article.sourceName}`,
+      author: { _type: 'reference' as const, _ref: authorRef },
+      categories: [{ _type: 'reference' as const, _ref: catId, _key: `cat-${catId}` }],
+      // Analisis AI
+      factCheckScore: rewritten?.analysis?.factCheckScore ?? null,
+      ethicsScore: rewritten?.analysis?.ethicsScore ?? null,
+      originalityScore: rewritten?.analysis?.originalityScore ?? null,
+      plagiarismScore: rewritten?.analysis?.plagiarismScore ?? null,
+      sourceAttributions: rewritten?.analysis?.sourceAttributions || [],
+      verifiedFacts: rewritten?.analysis?.verifiedFacts || [],
+      aiMetadata: rewritten ? {
+        model: 'claude-sonnet-5-20250514',
+        rewrittenAt: new Date().toISOString(),
+        originalTitle: article.title,
+      } : undefined,
     };
 
     const docId = `post-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
