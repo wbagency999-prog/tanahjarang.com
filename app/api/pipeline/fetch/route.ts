@@ -161,38 +161,17 @@ async function uploadImage(imageUrl: string): Promise<string | null> {
   }
 }
 
-// Convert text ke Portable Text blocks
-function textToBlocks(text: string): any[] {
-  return text.split(/\n\n+/).filter(Boolean).map((p, i) => ({
-    _type: 'block',
-    _key: `body-${i}`,
-    style: 'normal',
-    children: [{ _type: 'span', _key: `span-${i}`, text: p.trim() }],
-    markDefs: [],
-  }));
-}
-
-// Generate slug
-function generateSlug(title: string): string {
-  return title
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-|-$/g, '')
-    .substring(0, 100);
-}
-
-// Convert plain text ke Portable Text blocks
-function textToBlocks(text: string): any[] {
-  return text.split(/\n\n+/).filter(Boolean).map((p, i) => ({
-    _type: 'block',
-    _key: `body-${i}`,
-    style: 'normal',
-    children: [{ _type: 'span', _key: `span-${i}`, text: p.trim() }],
-    markDefs: [],
-  }));
-}
-
 // Simpan ke Sanity + AI Rewrite
+function textToBlocks(text: string): any[] {
+  return text.split(/\n\n+/).filter(Boolean).map((p, i) => ({
+    _type: 'block',
+    _key: `body-${i}`,
+    style: 'normal',
+    children: [{ _type: 'span', _key: `span-${i}`, text: p.trim() }],
+    markDefs: [],
+  }));
+}
+
 async function saveToSanity(article: FetchedArticle): Promise<string | null> {
   try {
     // Upload gambar
