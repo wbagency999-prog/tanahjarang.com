@@ -7,6 +7,7 @@ import Anthropic from '@anthropic-ai/sdk';
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
   baseURL: process.env.ANTHROPIC_BASE_URL || 'https://api.anthropic.com',
+  timeout: 30000, // 30 second timeout
 });
 
 export interface RewriteResult {
@@ -17,75 +18,55 @@ export interface RewriteResult {
   tags: string[];
   metaDescription: string;
   seoTitle: string;
+  focusKeyphrase: string;
+  ogDescription: string;
+  mainImageAlt: string;
   category: string;
+  analysis: {
+    factCheckScore: number;
+    ethicsScore: number;
+    originalityScore: number;
+    plagiarismScore: number;
+    sourceAttributions: { sourceName: string; sourceUrl: string }[];
+    verifiedFacts: { claim: string; confidence: string; supportingSources: string[] }[];
+  };
 }
 
-const REWRITE_PROMPT = `Anda adalah jurnalis profesional Indonesia yang bekerja untuk portal berita "Warta Nusantara" (tanahjarang.com). Gaya penulisan Anda formal, akurat, dan mudah dipahami pembaca umum.
+const REWRITE_PROMPT = `Anda adalah jurnalis profesional Indonesia. Buat artikel baru dari sumber di bawah.
 
-TUGAS: Buat artikel berita baru berdasarkan informasi sumber di bawah. Artikel harus 100% original, bukan copy-paste.
-
-PENTING: Artikel harus LENGKAP dan PANJANG. Minimal 400 kata, idealnya 500-600 kata. JANGAN pendek!
-
-STRUKTUR ARTIKEL (wajib diikuti):
-1. LEAD (1 paragraf, minimal 4 kalimat): Kalimat pembuka yang menarik, memuat 5W+1H (Siapa, Apa, Kapan, Di Mana, Mengapa, Bagaimana). Keyword utama harus ada di paragraf pertama. Jelaskan secara rinci apa yang terjadi.
-
-2. LATAR BELAKANG (1 paragraf, minimal 4 kalimat): Konteks mengapa berita ini penting, hubungan dengan situasi terkini. Tambahkan data historis atau statistik sebelumnya jika relevan.
-
-3. ISI UTAMA (3-4 paragraf, masing-masing minimal 4 kalimat): Detail kejadian, data, statistik, fakta-fakta penting. Sertakan kutipan dari pihak terkait jika ada di sumber. Jelaskan kronologi kejadian secara detail.
-
-4. DAMPAK/DI SIKNIKANSI (1-2 paragraf, minimal 4 kalimat): Pengaruh berita ini terhadap masyarakat, industri, atau kebijakan. Analisis lebih dalam tentang konsekuensi.
-
-5. PENUTUP (1 paragraf, minimal 3 kalimat): Kesimpulan atau langkah selanjutnya yang diharapkan.
-
-ATURAN PENULISAN:
-- Gunakan Bahasa Indonesia baku, formal, profesional
-- Hindari bahasa gaul, slang, atau terlalu kasual
-- Setiap paragraf minimal 4 kalimat (ini sangat penting!)
-- Total artikel MINIMAL 400 kata, idealnya 500-600 kata
-- Sebutkan sumber: "Dilansir dari [Nama Media]"
-- Jika ada data/angka, sertakan dengan akurat
-- Jangan mengarang fakta yang tidak ada di sumber
-- Tambahkan konteks relevan tentang Indonesia jika sesuai
-- Kembangkan setiap paragraf dengan penjelasan detail, jangan terlalu singkat
-
-FORMAT SUBJUDUL (subtitle):
-- Ringkas inti berita dalam 1-2 kalimat
-- Maksimal 120 karakter
-- Menarik dan informatif
-
-SEO TITLE:
-- Ringkas, mengandung keyword utama
-- Maksimal 60 karakter
-- Membuat orang ingin mengklik
-
-EXCERPT:
-- 1-2 kalimat yang menggugah rasa ingin tahu
-- Maksimal 160 karakter
-- Bukan potongan acak dari artikel
-
-METADESCRIPTION:
-- Deskripsi menarik untuk search engine
-- Maksimal 160 karakter
-- Mengandung keyword dan call-to-action implisit
-
-TAGS:
-- 5-7 tag relevan dalam bahasa Indonesia
-- Termasuk nama tempat/orang jika relevan
-- Termasuk topik terkait
+ATURAN:
+- 400-600 kata, 5-6 paragraf
+- Paragraf 1: Lead (5W+1H)
+- Paragraf 2-4: Isi utama dengan kutipan
+- Paragraf 5: Dampak/analisis
+- Paragraf 6: Penutup
+- Bahasa Indonesia baku, sebutkan sumber
+- Jangan mengarang fakta
 
 Output JSON:
 {
-  "title": "Judul artikel menarik dan SEO-friendly",
-  "subtitle": "Ringkasan inti berita (maks 120 karakter)",
-  "body": "Isi artikel dengan paragraf terstruktur. Pisahkan paragraf dengan \\n\\n",
-  "excerpt": "Ringkasan engaging 1-2 kalimat (maks 160 karakter)",
-  "tags": ["tag1", "tag2", "tag3", "tag4", "tag5"],
-  "metaDescription": "Deskripsi SEO menarik (maks 160 karakter)",
-  "seoTitle": "Judul SEO ringkas (maks 60 karakter)",
-  "category": "Kategori artikel"
+  "title": "Judul menarik",
+  "subtitle": "Ringkasan maks 120 karakter",
+  "body": "Isi artikel. Pisahkan paragraf dengan \\n\\n",
+  "excerpt": "Ringkasan maks 160 karakter",
+  "tags": ["tag1", "tag2", "tag3", "tag4"],
+  "metaDescription": "SEO deskripsi maks 160 karakter",
+  "seoTitle": "Judul SEO maks 60 karakter",
+  "focusKeyphrase": "kata kunci 2-4 kata",
+  "ogDescription": "Social media deskripsi maks 200 karakter",
+  "mainImageAlt": "Deskripsi gambar maks 125 karakter",
+  "category": "Kategori",
+  "analysis": {
+    "factCheckScore": 85,
+    "ethicsScore": 90,
+    "originalityScore": 88,
+    "plagiarismScore": 12,
+    "sourceAttributions": [{"sourceName": "Nama Media", "sourceUrl": ""}],
+    "verifiedFacts": [{"claim": "Fakta", "confidence": "high", "supportingSources": ["Sumber"]}]
+  }
 }
 
-PENTING: Output HARUS berupa JSON valid tanpa markdown code block.`;
+Output JSON valid saja, tanpa markdown.`;
 
 export async function rewriteArticle(
   originalTitle: string,
@@ -104,8 +85,8 @@ ${originalContent}`;
 
   try {
     const response = await anthropic.messages.create({
-      model: 'claude-sonnet-5-20250514',
-      max_tokens: 4096,
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 2048,
       messages: [
         { role: 'user', content: REWRITE_PROMPT + '\n\n' + userMessage },
       ],

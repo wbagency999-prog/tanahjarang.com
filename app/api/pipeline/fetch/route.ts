@@ -305,7 +305,7 @@ export async function GET(request: NextRequest) {
 
   const enabledFeeds = RSS_FEEDS.filter((f) => f.enabled);
   const feedLimit = parseInt(request.nextUrl.searchParams.get('feeds') || '1');
-  const articleLimit = parseInt(request.nextUrl.searchParams.get('limit') || '3');
+  const articleLimit = parseInt(request.nextUrl.searchParams.get('limit') || '1');
   const logs: string[] = [];
   let totalFetched = 0;
   let totalSaved = 0;
