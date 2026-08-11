@@ -13,6 +13,7 @@ interface PipelinePost {
   pipelineStatus: string;
   publishedAt: string;
   sourceName: string;
+  originalUrl?: string;
   tags: string[];
   aiDisclosure: boolean;
   categories?: { title: string }[];
@@ -93,8 +94,8 @@ export default function PipelineDashboard() {
           status: 'done',
           result: lastLine || 'Selesai',
         } : r));
-        // Delay 2s untuk beri waktu Sanity propagate sebelum refresh
         setTimeout(() => fetchPosts(), 2000);
+      } else {
         // Rewrite & publish return JSON
         const data = await res.json();
         setRuns(prev => prev.map(r => r.id === runId ? {
@@ -104,8 +105,8 @@ export default function PipelineDashboard() {
             ? `${data.totalSaved ?? data.rewritten ?? data.published ?? 0} artikel diproses`
             : (data.error || 'Gagal'),
         } : r));
+        fetchPosts();
       }
-      fetchPosts();
     } catch {
       setRuns(prev => prev.map(r => r.id === runId ? { ...r, status: 'error', result: 'Network error' } : r));
     }
@@ -372,6 +373,14 @@ function ArticleCard({ post, actionLoading, onUpdateStatus, statusColors, status
           {/* Meta */}
           <div className="text-xs text-gray-500 space-y-1">
             <p>Tanggal: {new Date(post.publishedAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+            {post.originalUrl && (
+              <p>
+                <a href={post.originalUrl} target="_blank" rel="noopener noreferrer"
+                   className="text-blue-500 underline">
+                  🔗 Lihat sumber asli →
+                </a>
+              </p>
+            )}
             {post.tags.length > 0 && <p>Tags: {post.tags.join(', ')}</p>}
             {post.aiMetadata && (
               <p className="text-gray-400 italic">Original: {post.aiMetadata.originalTitle}</p>

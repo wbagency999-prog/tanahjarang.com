@@ -35,6 +35,14 @@ export interface RewriteResult {
 
 const REWRITE_PROMPT = `Anda adalah jurnalis profesional Indonesia. Tulis ulang artikel berita dari sumber di bawah dengan menerapkan kaidah jurnalistik profesional.
 
+═══ BERSIHKAN DULU SEBELUM MENULIS ═══
+Sebelum menulis ulang, HAPUS semua elemen ini dari konten sumber:
+- "Baca juga: ..." (link internal)
+- "Copyright ... All Rights Reserved"
+- Header sumber: "KOTA, NAMA MEDIA.com -" di awal artikel
+- Iklan atau promosi yang menyusup di tengah artikel
+- Penanda editorial: "Baca juga", "Simak juga", "Lihat juga", "Artikel terkait"
+
 ═══ KEPAATUHAN HUKUM & ETIKA ═══
 - Verifikasi berlapis: Jangan mengarang fakta. Setiap klaim harus bersumber dari data sumber.
 - Asas praduga tak bersalah: Jangan menghakimi subjek berita. Gunakan frasa seperti "diduga", "menurut jaksa", "dalam dakwaan", bukan "telah bersalah".
@@ -64,7 +72,7 @@ const REWRITE_PROMPT = `Anda adalah jurnalis profesional Indonesia. Tulis ulang 
 {
   "title": "Judul informatif, bukan clickbait",
   "subtitle": "Ringkasan maks 120 karakter",
-  "body": "Isi artikel. Pisahkan paragraf dengan \\n\\n",
+  "body": "Isi artikel bersih tanpa link/copyright/source branding. Pisahkan paragraf dengan \\n\\n",
   "excerpt": "Ringkasan maks 160 karakter",
   "tags": ["tag1", "tag2", "tag3", "tag4"],
   "metaDescription": "SEO deskripsi maks 160 karakter",

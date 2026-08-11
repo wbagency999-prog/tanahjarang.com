@@ -37,7 +37,7 @@ export async function GET(request: NextRequest) {
   if (status !== 'all') {
     query += ` && pipelineStatus == "${status}"`;
   }
-  query += `] | order(publishedAt desc)[0...${limit}]{_id, title, excerpt, pipelineStatus, publishedAt, sourceName, tags, aiDisclosure, aiMetadata}`;
+  query += `] | order(publishedAt desc)[0...${limit}]{_id, title, excerpt, pipelineStatus, publishedAt, sourceName, originalUrl, tags, aiDisclosure, aiMetadata}`;
 
   const posts = await writeClient.fetch<PipelinePost[]>(query);
 
