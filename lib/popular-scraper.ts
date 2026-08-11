@@ -473,65 +473,60 @@ async function fetchFromKumparan(): Promise<PopularArticle[]> {
 
 // ═══ MAIN ═══
 
-// Fetch konten artikel dari URL asli
-async function fetchArticleContent(url: string): Promise<{ content: string; excerpt: string; imageUrl: string | null }> {
+// Fetch og:image + content dari halaman artikel (selalu punya gambar)
+async function enrichArticle(article: PopularArticle): Promise<PopularArticle> {
   try {
-    const res = await fetch(url, {
+    const res = await fetch(article.link, {
       headers: HEADERS,
-      signal: AbortSignal.timeout(15000),
+      signal: AbortSignal.timeout(10000),
     });
-    if (!res.ok) return { content: '', excerpt: '', imageUrl: null };
+    if (!res.ok) return article;
 
     const html = await res.text();
     const $ = cheerio.load(html);
 
-    // Remove script, style, nav, footer, header
-    $('script, style, nav, footer, header, aside, .sidebar, .advertisement, .ads').remove();
+    // og:image — SELALU ada di semua situs berita Indonesia
+    const ogImage = $('meta[property="og:image"]').attr('content');
+    const twitterImage = $('meta[name="twitter:image"]').attr('content');
+    let imageUrl = ogImage || twitterImage || article.imageUrl;
+    if (imageUrl && !imageUrl.startsWith('http')) imageUrl = article.imageUrl;
 
-    // Try common article body selectors
+    // meta description
+    const metaDesc = $('meta[name="description"]').attr('content') || '';
+
+    // article body
+    $('script, style, nav, footer, header, aside, .sidebar, .advertisement, .ads').remove();
     const bodySelectors = [
       'article', '.detail-text', '.detail__body', '.text-content',
       '.article-content', '.post-content', '.entry-content',
       '.content-article', '#detail-text', '.detail_body',
-      '[class*=detail] [class*=body]', '[class*=article] [class*=content]',
     ];
-
-    let bodyText = '';
+    let content = '';
     for (const sel of bodySelectors) {
       const el = $(sel).first();
       if (el.length) {
-        bodyText = el.text().trim().replace(/\s+/g, ' ');
-        if (bodyText.length > 100) break;
+        content = el.text().trim().replace(/\s+/g, ' ');
+        if (content.length > 100) break;
       }
     }
-
-    // Fallback: find largest text block in <p> tags
-    if (bodyText.length < 100) {
+    // Fallback: largest <p> blocks
+    if (content.length < 100) {
       const paragraphs: string[] = [];
       $('p').each((_, el) => {
         const text = $(el).text().trim();
         if (text.length > 30) paragraphs.push(text);
       });
-      bodyText = paragraphs.join('\n\n');
+      content = paragraphs.join('\n\n');
     }
 
-    // Extract excerpt from meta description or first paragraph
-    const metaDesc = $('meta[name="description"]').attr('content') || '';
-    const excerpt = metaDesc.substring(0, 200) || bodyText.substring(0, 200);
-
-    // Extract image
-    let imageUrl: string | null = null;
-    const ogImage = $('meta[property="og:image"]').attr('content');
-    if (ogImage && ogImage.startsWith('http')) {
-      imageUrl = ogImage;
-    } else {
-      const articleImg = $('article img, .detail-text img, .article-content img').first().attr('src');
-      if (articleImg && articleImg.startsWith('http')) imageUrl = articleImg;
-    }
-
-    return { content: bodyText, excerpt, imageUrl };
+    return {
+      ...article,
+      imageUrl,
+      content: content || article.title,
+      excerpt: metaDesc.substring(0, 200) || article.title,
+    };
   } catch {
-    return { content: '', excerpt: '', imageUrl: null };
+    return article;
   }
 }
 
@@ -572,26 +567,20 @@ export async function fetchAllPopular(): Promise<PopularArticle[]> {
 
   console.log('After cross-source dedup:', deduped.length);
 
-  // Fetch konten dari URL asli untuk artikel teratas (max 5 untuk efisiensi)
-  const toEnrich = deduped.slice(0, 5);
-  console.log(`Fetching content for top ${toEnrich.length} articles...`);
+  // Parallel enrich max 20 articles — ambil og:image dari article page
+  const toEnrich = deduped.slice(0, 20);
+  console.log(`Enriching ${toEnrich.length} articles (og:image + content)...`);
 
-  // Fetch berurutan untuk hindari rate limit
-  const result: PopularArticle[] = [];
-  for (const article of toEnrich) {
-    const { content, excerpt, imageUrl } = await fetchArticleContent(article.link);
-    result.push({
-      ...article,
-      content: content || article.title,
-      excerpt: excerpt || article.title,
-      imageUrl: imageUrl || article.imageUrl,
-    });
-  }
+  const enrichedResults = await Promise.allSettled(toEnrich.map(a => enrichArticle(a)));
+  const enriched = enrichedResults.map((r, i) =>
+    r.status === 'fulfilled' ? r.value : toEnrich[i]
+  );
 
-  // Tambah sisa artikel tanpa konten (akan di-skip oleh rewrite jika terlalu pendek)
-  result.push(...deduped.slice(5));
+  const withImage = enriched.filter(a => a.imageUrl && a.imageUrl.startsWith('http')).length;
+  console.log(`Enriched: ${withImage}/${enriched.length} articles have images`);
 
-  console.log(`Enriched ${result.filter(a => (a.content || '').length > 100).length} articles with content`);
+  // Gabungkan: enriched + sisa tanpa enrich
+  const result = [...enriched, ...deduped.slice(20)];
   return result;
 }
 

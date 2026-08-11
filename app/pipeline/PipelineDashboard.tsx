@@ -93,7 +93,8 @@ export default function PipelineDashboard() {
           status: 'done',
           result: lastLine || 'Selesai',
         } : r));
-      } else {
+        // Delay 2s untuk beri waktu Sanity propagate sebelum refresh
+        setTimeout(() => fetchPosts(), 2000);
         // Rewrite & publish return JSON
         const data = await res.json();
         setRuns(prev => prev.map(r => r.id === runId ? {

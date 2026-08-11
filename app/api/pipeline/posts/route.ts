@@ -3,7 +3,6 @@
 // ═══════════════════════════════════════════════════════════
 
 import { NextRequest, NextResponse } from 'next/server';
-import { client } from '@/sanity/client';
 import { writeClient } from '@/sanity/writeClient';
 
 export const dynamic = 'force-dynamic';
@@ -40,7 +39,7 @@ export async function GET(request: NextRequest) {
   }
   query += `] | order(publishedAt desc)[0...${limit}]{_id, title, excerpt, pipelineStatus, publishedAt, sourceName, tags, aiDisclosure, aiMetadata}`;
 
-  const posts = await client.fetch<PipelinePost[]>(query);
+  const posts = await writeClient.fetch<PipelinePost[]>(query);
 
   return NextResponse.json({ posts });
 }
@@ -66,7 +65,7 @@ export async function PATCH(request: NextRequest) {
   try {
     if (status === 'published') {
       // Baca document lengkap
-      const fullPost = await client.fetch<any>(
+      const fullPost = await writeClient.fetch<any>(
         `*[_id == $id][0]`,
         { id: postId }
       );
