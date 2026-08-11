@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
   logs.push(`Starting publish at ${new Date().toISOString()}`);
 
   // Ambil SEMUA draft articles (sudah final dari fetch)
-  const posts = await client.fetch<{ _id: string; title: string; full: any }[]>(
+  const posts = await writeClient.fetch<{ _id: string; title: string }[]>(
     `*[_type == "post" && _id in path("drafts.**")] | order(publishedAt desc)[0...50]{
       _id,
       title,
@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
 
     try {
       // Baca draft document lengkap
-      const fullPost = await client.fetch<any>(
+      const fullPost = await writeClient.fetch<any>(
         `*[_id == $id][0]`,
         { id: post._id }
       );
