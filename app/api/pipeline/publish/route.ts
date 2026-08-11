@@ -3,8 +3,7 @@
 // ═══════════════════════════════════════════════════════════
 
 import { NextRequest, NextResponse } from 'next/server';
-import { client } from '@/sanity/client';
-import { writeClient } from '@/sanity/writeClient';
+import { getWriteClient } from '@/sanity/writeClient';
 
 export const dynamic = 'force-dynamic';
 
@@ -14,6 +13,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
+  const writeClient = getWriteClient();
   const logs: string[] = [];
   let published = 0;
   let failed = 0;
