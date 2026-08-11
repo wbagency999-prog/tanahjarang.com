@@ -304,19 +304,22 @@ export async function GET(request: NextRequest) {
   }
 
   const enabledFeeds = RSS_FEEDS.filter((f) => f.enabled);
-  const limit = parseInt(request.nextUrl.searchParams.get('limit') || String(enabledFeeds.length));
+  const feedLimit = parseInt(request.nextUrl.searchParams.get('feeds') || '1');
+  const articleLimit = parseInt(request.nextUrl.searchParams.get('limit') || '3');
   const logs: string[] = [];
   let totalFetched = 0;
   let totalSaved = 0;
 
   logs.push(`Starting fetch at ${new Date().toISOString()}`);
+  logs.push(`Limits: ${feedLimit} feed(s), ${articleLimit} article(s) per feed`);
 
-  for (const feed of enabledFeeds.slice(0, limit)) {
+  for (const feed of enabledFeeds.slice(0, feedLimit)) {
     logs.push(`\nFetching: ${feed.name}...`);
     const articles = await fetchFeed(feed);
-    logs.push(`Found ${articles.length} new articles`);
+    const toProcess = articles.slice(0, articleLimit);
+    logs.push(`Found ${articles.length} new, processing ${toProcess.length}`);
 
-    for (const article of articles) {
+    for (const article of toProcess) {
       const saved = await saveToSanity(article);
       if (saved) {
         totalSaved++;
