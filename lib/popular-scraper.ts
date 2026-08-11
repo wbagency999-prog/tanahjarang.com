@@ -572,8 +572,8 @@ export async function fetchAllPopular(): Promise<PopularArticle[]> {
 
   console.log('After cross-source dedup:', deduped.length);
 
-  // Fetch konten dari URL asli untuk artikel teratas (max 10 untuk efisiensi)
-  const toEnrich = deduped.slice(0, 10);
+  // Fetch konten dari URL asli untuk artikel teratas (max 5 untuk efisiensi)
+  const toEnrich = deduped.slice(0, 5);
   console.log(`Fetching content for top ${toEnrich.length} articles...`);
 
   // Fetch berurutan untuk hindari rate limit
@@ -589,7 +589,7 @@ export async function fetchAllPopular(): Promise<PopularArticle[]> {
   }
 
   // Tambah sisa artikel tanpa konten (akan di-skip oleh rewrite jika terlalu pendek)
-  result.push(...deduped.slice(10));
+  result.push(...deduped.slice(5));
 
   console.log(`Enriched ${result.filter(a => (a.content || '').length > 100).length} articles with content`);
   return result;

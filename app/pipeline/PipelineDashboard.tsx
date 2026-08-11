@@ -73,14 +73,37 @@ export default function PipelineDashboard() {
 
     try {
       const res = await fetch(`/api/pipeline/${type}?secret=${secret}`);
-      const data = await res.json();
-      setRuns(prev => prev.map(r => r.id === runId ? {
-        ...r,
-        status: 'done',
-        result: data.success
-          ? `${data.totalSaved ?? data.rewritten ?? data.published ?? 0} artikel diproses`
-          : (data.error || 'Gagal'),
-      } : r));
+
+      // Fetch returns streaming text — read chunks in real-time
+      if (type === 'fetch' && res.body) {
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let lastLine = '';
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          const chunk = decoder.decode(value, { stream: true });
+          const lines = chunk.split('\n').filter(Boolean);
+          for (const line of lines) lastLine = line;
+        }
+
+        setRuns(prev => prev.map(r => r.id === runId ? {
+          ...r,
+          status: 'done',
+          result: lastLine || 'Selesai',
+        } : r));
+      } else {
+        // Rewrite & publish return JSON
+        const data = await res.json();
+        setRuns(prev => prev.map(r => r.id === runId ? {
+          ...r,
+          status: 'done',
+          result: data.success
+            ? `${data.totalSaved ?? data.rewritten ?? data.published ?? 0} artikel diproses`
+            : (data.error || 'Gagal'),
+        } : r));
+      }
       fetchPosts();
     } catch {
       setRuns(prev => prev.map(r => r.id === runId ? { ...r, status: 'error', result: 'Network error' } : r));
