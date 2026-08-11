@@ -22,14 +22,15 @@ export async function GET(request: NextRequest) {
 
   logs.push(`Starting publish at ${new Date().toISOString()}`);
 
-  const limit = parseInt(request.nextUrl.searchParams.get('limit') || '2');
+  const limit = parseInt(request.nextUrl.searchParams.get('limit') || '20');
 
   // Ambil draft articles yang sudah ready-for-review (sudah di-rewrite AI)
-  const posts = await writeClient.fetch<{ _id: string; title: string }[]>(
+  // Quality gate: hanya publish yang factCheckScore >= 60
+  const posts = await writeClient.fetch<{ _id: string; title: string; factCheckScore?: number }[]>(
     `*[_type == "post" && _id in path("drafts.**") && pipelineStatus == "ready-for-review"] | order(publishedAt desc)[0...${limit}]{
       _id,
       title,
-      ...
+      factCheckScore
     }`
   );
 
@@ -37,6 +38,13 @@ export async function GET(request: NextRequest) {
 
   for (const post of posts) {
     logs.push(`\nPublishing: ${post.title.substring(0, 50)}...`);
+
+    // Quality gate: skip artikel dengan factCheckScore rendah
+    if (post.factCheckScore !== null && post.factCheckScore !== undefined && post.factCheckScore < 60) {
+      logs.push(`  ⚠ Skipped: factCheckScore ${post.factCheckScore} < 60 (quality gate)`);
+      failed++;
+      continue;
+    }
 
     try {
       // Baca draft document lengkap

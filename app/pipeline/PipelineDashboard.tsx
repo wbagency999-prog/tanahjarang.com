@@ -213,7 +213,7 @@ export default function PipelineDashboard() {
           <h2 className="text-sm font-semibold text-gray-700 mb-3">Kontrol Pipeline</h2>
           <div className="grid grid-cols-3 gap-2">
             <PipelineButton
-              label="Fetch"
+              label="Fetch + AI"
               icon="📰"
               color="blue"
               onClick={() => runPipeline('fetch')}
@@ -221,7 +221,7 @@ export default function PipelineDashboard() {
               type="fetch"
             />
             <PipelineButton
-              label="Rewrite"
+              label="Rewrite All"
               icon="✍️"
               color="purple"
               onClick={() => runPipeline('rewrite')}

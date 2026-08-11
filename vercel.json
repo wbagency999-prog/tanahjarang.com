@@ -5,10 +5,6 @@
       "schedule": "0 */6 * * *"
     },
     {
-      "path": "/api/pipeline/rewrite",
-      "schedule": "15 */6 * * *"
-    },
-    {
       "path": "/api/pipeline/publish",
       "schedule": "30 */6 * * *"
     }

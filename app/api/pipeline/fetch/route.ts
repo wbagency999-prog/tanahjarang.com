@@ -25,6 +25,7 @@ const CATEGORY_MAP: Record<string, string> = {
   bisnis: 'a89c1f1f-b021-4604-9214-2b9e9ef097c8',
   pendidikan: 'vG7OWidh2JKCGmChuCBMmJ',
   otomotif: 'c669d085-a81e-45ac-8057-12a955e6e20a',
+  kesehatan: 'vG7OWidh2JKCGmChuCBMmJ',
 };
 
 const AUTHOR_MAP: Record<string, string> = {
@@ -36,13 +37,14 @@ const AUTHOR_MAP: Record<string, string> = {
   bisnis: '11XvD3mq7HlIxXJq9S3NDo',
   pendidikan: 'Z7sgg6YupGd2FS20j9M2vL',
   otomotif: '11XvD3mq7HlIxXJq9S3TRh',
+  kesehatan: '11XvD3mq7HlIxXJq9S3TRh',
 };
 
 async function fetchRecentTitles(): Promise<string[]> {
-  const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+  const threeDaysAgo = new Date(Date.now() - 72 * 60 * 60 * 1000).toISOString();
   const recent = await getWriteClient().fetch<{ title: string }[]>(
-    `*[_type == "post" && pipelineStatus in $statuses && publishedAt > $dayAgo] | order(publishedAt desc)[0...100]{ title }`,
-    { dayAgo, statuses: PIPELINE_STATUSES }
+    `*[_type == "post" && pipelineStatus in $statuses && publishedAt > $threeDaysAgo] | order(publishedAt desc)[0...200]{ title }`,
+    { threeDaysAgo, statuses: PIPELINE_STATUSES }
   );
   return recent.map((post) => post.title);
 }
