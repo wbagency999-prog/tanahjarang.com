@@ -7,7 +7,7 @@ import Anthropic from '@anthropic-ai/sdk';
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
   baseURL: process.env.ANTHROPIC_BASE_URL || 'https://api.anthropic.com',
-  timeout: 30000, // 30 second timeout
+  timeout: 60000, // 60 second timeout
 });
 
 export interface RewriteResult {

@@ -331,7 +331,8 @@ export default defineType({
       name: 'originalUrl',
       title: 'URL Asli',
       type: 'url',
-      hidden: true,
+      description: 'Link sumber berita asli dari media sumber',
+      group: 'publish',
     }),
     defineField({
       name: 'sourceName',
