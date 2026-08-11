@@ -7,7 +7,7 @@ import Anthropic from '@anthropic-ai/sdk';
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
   baseURL: process.env.ANTHROPIC_BASE_URL || 'https://api.anthropic.com',
-  timeout: 60000, // 60 second timeout
+  timeout: 90000, // 90 second timeout
 });
 
 export interface RewriteResult {
@@ -94,6 +94,14 @@ Sebelum menulis ulang, HAPUS semua elemen ini dari konten sumber:
 
 Output JSON valid saja, tanpa markdown.`;
 
+// Robust JSON extraction — cari blok { ... } terluar dari response
+function extractJSON(text: string): string {
+  const start = text.indexOf('{');
+  const end = text.lastIndexOf('}');
+  if (start !== -1 && end > start) return text.slice(start, end + 1);
+  return text.replace(/```json\n?|\n?```/g, '').trim();
+}
+
 export async function rewriteArticle(
   originalTitle: string,
   originalContent: string,
@@ -110,24 +118,39 @@ Isi artikel:
 ${originalContent}`;
 
   try {
-    const response = await anthropic.messages.create({
+    // Attempt 1: normal rewrite
+    let response = await anthropic.messages.create({
       model: 'claude-haiku-4-5-20251001',
-      max_tokens: 2048,
+      max_tokens: 4096,
       messages: [
         { role: 'user', content: REWRITE_PROMPT + '\n\n' + userMessage },
       ],
     });
 
-    const content = response.content[0];
-    if (content.type !== 'text') {
-      throw new Error('Unexpected response type');
+    let resultText = response.content[0].type === 'text' ? response.content[0].text : '';
+
+    // Attempt 2: retry if JSON parse fails
+    try {
+      const jsonStr = extractJSON(resultText);
+      const result: RewriteResult = JSON.parse(jsonStr);
+      return result;
+    } catch {
+      console.log('AI rewrite: first attempt parse failed, retrying...');
+      response = await anthropic.messages.create({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 4096,
+        messages: [
+          { role: 'user', content: REWRITE_PROMPT + '\n\n' + userMessage },
+          { role: 'assistant', content: resultText },
+          { role: 'user', content: 'Output HANYA JSON valid tanpa teks lain. Mulai dengan { dan akhirkan dengan }.' },
+        ],
+      });
+
+      resultText = response.content[0].type === 'text' ? response.content[0].text : '';
+      const jsonStr = extractJSON(resultText);
+      const result: RewriteResult = JSON.parse(jsonStr);
+      return result;
     }
-
-    // Parse JSON response
-    const jsonStr = content.text.replace(/```json\n?|\n?```/g, '').trim();
-    const result: RewriteResult = JSON.parse(jsonStr);
-
-    return result;
   } catch (error: any) {
     console.error('Rewrite error:', error.message);
     throw error;

@@ -134,9 +134,30 @@ export async function GET(request: NextRequest) {
   const stream = new ReadableStream({
     async start(controller) {
       const send = (msg: string) => controller.enqueue(encoder.encode(msg + '\n'));
+      let runId: string | null = null;
 
       try {
         send(`Starting fetch at ${new Date().toISOString()}`);
+
+        // Concurrency guard — cek apakah pipeline sedang berjalan
+        const existingRun = await getWriteClient().fetch<{ _id: string } | null>(
+          `*[_type == "pipelineRun" && status == "running"][0]{ _id }`
+        );
+        if (existingRun) {
+          send('⚠ Pipeline sedang berjalan oleh proses lain. Coba lagi nanti.');
+          controller.close();
+          return;
+        }
+
+        // Tandai pipeline sedang berjalan
+        runId = `pipelineRun-${Date.now()}`;
+        await getWriteClient().create({
+          _id: runId,
+          _type: 'pipelineRun',
+          status: 'running',
+          startedAt: new Date().toISOString(),
+        });
+
         const savedTitles: string[] = [];
 
         send(`Fetching popular articles from news sites...`);
@@ -147,7 +168,7 @@ export async function GET(request: NextRequest) {
         send(`After content filter: ${allArticles.length} articles`);
 
         const existingTitles = await fetchRecentTitles();
-        send(`Found ${existingTitles.length} existing titles in last 24h`);
+        send(`Found ${existingTitles.length} existing titles in last 72h`);
 
         // Word-based dedup
         const wordFiltered: PopularArticle[] = [];
@@ -252,9 +273,15 @@ export async function GET(request: NextRequest) {
         }
 
         send(`\nDone! ${totalFetched} fetched, ${totalSaved} saved, ${totalRewritten} rewritten`);
+
+        // Bersihkan pipeline run flag
+        if (runId) try { await getWriteClient().delete(runId); } catch { /* best effort */ }
+
         controller.close();
       } catch (error: any) {
         send(`Error: ${error.message}`);
+        // Bersihkan pipeline run flag
+        if (runId) try { await getWriteClient().delete(runId); } catch { /* best effort */ }
         controller.close();
       }
     },

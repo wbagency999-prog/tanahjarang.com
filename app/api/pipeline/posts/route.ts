@@ -33,13 +33,18 @@ export async function GET(request: NextRequest) {
   const status = request.nextUrl.searchParams.get('status') || 'all';
   const limit = parseInt(request.nextUrl.searchParams.get('limit') || '50');
 
+  const validStatuses = ['pending-review', 'ready-for-review', 'approved', 'published', 'rejected', 'all'];
+  if (!validStatuses.includes(status)) {
+    return NextResponse.json({ error: 'Invalid status' }, { status: 400 });
+  }
+
   let query = `*[_type == "post"`;
   if (status !== 'all') {
-    query += ` && pipelineStatus == "${status}"`;
+    query += ` && pipelineStatus == $status`;
   }
   query += `] | order(publishedAt desc)[0...${limit}]{_id, title, excerpt, pipelineStatus, publishedAt, sourceName, originalUrl, tags, aiDisclosure, aiMetadata}`;
 
-  const posts = await writeClient.fetch<PipelinePost[]>(query);
+  const posts = await writeClient.fetch<PipelinePost[]>(query, status !== 'all' ? { status } : {});
 
   return NextResponse.json({ posts });
 }

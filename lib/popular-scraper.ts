@@ -3,6 +3,7 @@
 // ═══════════════════════════════════════════════════════════
 
 import * as cheerio from 'cheerio';
+import { titleSimilarityScore } from '@/lib/title-dedup';
 
 export interface PopularArticle {
   title: string;
@@ -581,7 +582,7 @@ export async function fetchAllPopular(): Promise<PopularArticle[]> {
   const deduped: PopularArticle[] = [];
   for (const article of all) {
     const isDupe = deduped.some(
-      (existing) => titleSimilarity(article.title, existing.title) >= 0.35
+      (existing) => titleSimilarityScore(article.title, existing.title) >= 0.35
     );
     if (!isDupe) deduped.push(article);
   }
@@ -603,36 +604,4 @@ export async function fetchAllPopular(): Promise<PopularArticle[]> {
   // Gabungkan: enriched + sisa tanpa enrich
   const result = [...enriched, ...deduped.slice(20)];
   return result;
-}
-
-// Quick title similarity (same logic as title-dedup.ts)
-function titleSimilarity(a: string, b: string): number {
-  const STOP = new Set(['yang', 'di', 'dan', 'ini', 'itu', 'dengan', 'untuk', 'pada',
-    'ke', 'dari', 'ada', 'juga', 'akan', 'sudah', 'tidak', 'bisa', 'oleh', 'sebagai',
-    'dalam', 'adalah', 'tersebut', 'lebih', 'karena', 'belum', 'atau', 'kini',
-    'the', 'of', 'in', 'to', 'and', 'a', 'is', 'for', 'on', 'with', 'by', 'at',
-    'this', 'that', 'from', 'been', 'have', 'has', 'had', 'were', 'was', 'are',
-    'berita', 'terbaru', 'update', 'hari', 'ini', 'kabar', 'resmi']);
-
-  const wordsA = a.toLowerCase().replace(/[^a-z0-9\s]/g, '').split(/\s+/)
-    .filter(w => w.length >= 3 && !STOP.has(w));
-  const wordsB = b.toLowerCase().replace(/[^a-z0-9\s]/g, '').split(/\s+/)
-    .filter(w => w.length >= 3 && !STOP.has(w));
-
-  if (wordsA.length < 2 || wordsB.length < 2) return 0;
-
-  const setA = new Set(wordsA);
-  const setB = new Set(wordsB);
-  let matches = 0;
-  for (const w of setA) { if (setB.has(w)) matches++; }
-
-  const wordScore = matches / Math.min(setA.size, setB.size);
-
-  // Number match bonus
-  const numsA = a.match(/\d[\d.,]*\d|\d/g) || [] as string[];
-  const numsB = b.match(/\d[\d.,]*\d|\d/g) || [] as string[];
-  const numMatches = numsA.filter(n => numsB.includes(n)).length;
-  const numBonus = numMatches > 0 ? 0.15 : 0;
-
-  return Math.min(wordScore + numBonus, 1.0);
 }

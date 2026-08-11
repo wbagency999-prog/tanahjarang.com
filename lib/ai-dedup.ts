@@ -55,46 +55,56 @@ export async function aiDeduplicate(
     return { duplicateIndices: [], totalChecked: newTitles.length, totalDuplicates: 0 };
   }
 
-  // Format judul dengan numbering
-  const formattedNew = newTitles
-    .map((title, i) => `${i}. "${title}"`)
-    .join('\n');
+  // Batch jika existing titles banyak (>100) — bagi jadi batch 50
+  const BATCH_SIZE = 50;
+  const allDuplicateIndices: number[] = [];
 
-  const formattedExisting = existingTitles
-    .map((title, i) => `${i + 1}. "${title}"`)
-    .join('\n');
+  const batches = existingTitles.length > BATCH_SIZE
+    ? Array.from({ length: Math.ceil(existingTitles.length / BATCH_SIZE) }, (_, i) =>
+        existingTitles.slice(i * BATCH_SIZE, (i + 1) * BATCH_SIZE)
+      )
+    : [existingTitles];
 
-  const prompt = DEDUP_PROMPT
-    .replace('{newTitles}', formattedNew)
-    .replace('{existingTitles}', formattedExisting);
+  for (const batch of batches) {
+    const formattedNew = newTitles
+      .map((title, i) => `${i}. "${title}"`)
+      .join('\n');
 
-  try {
-    const response = await anthropic.messages.create({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 512,
-      messages: [{ role: 'user', content: prompt }],
-    });
+    const formattedExisting = batch
+      .map((title, i) => `${i + 1}. "${title}"`)
+      .join('\n');
 
-    const text = response.content[0].type === 'text' ? response.content[0].text : '';
+    const prompt = DEDUP_PROMPT
+      .replace('{newTitles}', formattedNew)
+      .replace('{existingTitles}', formattedExisting);
 
-    // Parse JSON array from response
-    const jsonMatch = text.match(/\[[\d\s,]*\]/);
-    if (!jsonMatch) {
-      console.log('AI dedup: no JSON array found in response');
-      return { duplicateIndices: [], totalChecked: newTitles.length, totalDuplicates: 0 };
+    try {
+      const response = await anthropic.messages.create({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 512,
+        messages: [{ role: 'user', content: prompt }],
+      });
+
+      const text = response.content[0].type === 'text' ? response.content[0].text : '';
+
+      const jsonMatch = text.match(/\[[\d\s,]*\]/);
+      if (jsonMatch) {
+        const indices: number[] = JSON.parse(jsonMatch[0]);
+        const validIndices = indices.filter(i => i >= 0 && i < newTitles.length);
+        allDuplicateIndices.push(...validIndices);
+      }
+    } catch (error: any) {
+      console.error('AI dedup batch error:', error.message);
+      // Continue to next batch on error
     }
-
-    const indices: number[] = JSON.parse(jsonMatch[0]);
-    const validIndices = indices.filter(i => i >= 0 && i < newTitles.length);
-
-    return {
-      duplicateIndices: validIndices,
-      totalChecked: newTitles.length,
-      totalDuplicates: validIndices.length,
-    };
-  } catch (error: any) {
-    console.error('AI dedup error:', error.message);
-    // Fallback: don't skip anything if AI fails
-    return { duplicateIndices: [], totalChecked: newTitles.length, totalDuplicates: 0 };
   }
+
+  // Deduplicate indices
+  const uniqueIndices = [...new Set(allDuplicateIndices)];
+
+  return {
+    duplicateIndices: uniqueIndices,
+    totalChecked: newTitles.length,
+    totalDuplicates: uniqueIndices.length,
+  };
 }

@@ -59,21 +59,20 @@ export async function GET(request: NextRequest) {
         continue;
       }
 
-      // Hapus draft
-      await writeClient.delete(post._id);
-      logs.push(`  ✓ Draft deleted`);
-
-      // Buat published version (tanpa prefix drafts.)
+      // Publish atomik: createOrReplace (hapus draft + buat published dalam 1 operasi)
       const publishedId = post._id.replace('drafts.', '');
       const { _id, _rev, _type, ...data } = fullPost;
-      await writeClient.createIfNotExists({
+      await writeClient.createOrReplace({
         _id: publishedId,
         _type,
         ...data,
         publishedAt: new Date().toISOString(),
         pipelineStatus: 'published',
       });
-      logs.push(`  ✓ Published as: ${publishedId}`);
+      logs.push(`  ✓ Published atomik: ${publishedId}`);
+
+      // Hapus draft setelah publish sukses
+      try { await writeClient.delete(post._id); } catch { /* draft auto-replaced */ }
 
       published++;
     } catch (error: any) {

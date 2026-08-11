@@ -284,6 +284,13 @@ export default function PipelineDashboard() {
           </button>
         </div>
 
+        {/* Rewrite failure indicator */}
+        {(statusCounts['pending-review'] || 0) > 0 && (
+          <div className="bg-amber-50 border border-amber-200 rounded-xl px-3 py-2 text-xs text-amber-700">
+            ⚠ {statusCounts['pending-review']} artikel belum di-rewrite (klik "Rewrite All" untuk retry)
+          </div>
+        )}
+
         {/* ─── Articles List ─── */}
         {loading ? (
           <div className="text-center py-12 text-gray-400">
