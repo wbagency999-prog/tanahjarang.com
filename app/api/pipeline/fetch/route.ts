@@ -4,12 +4,12 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import Parser from 'rss-parser';
-import { client } from '@/sanity/client';
-import { writeClient } from '@/sanity/writeClient';
+import { getWriteClient } from '@/sanity/writeClient';
 import { RSS_FEEDS, FILTER_KEYWORDS } from '@/lib/rss-feeds';
-import { rewriteArticle, type RewriteResult } from '@/lib/ai-rewriter';
+import { isSimilarTitle } from '@/lib/title-dedup';
 
 export const dynamic = 'force-dynamic';
+export const maxDuration = 60;
 
 const parser = new Parser({
   timeout: 15000,
@@ -36,61 +36,17 @@ interface FetchedArticle {
   category: string;
 }
 
-// Cek apakah artikel sudah ada (berdasarkan URL)
-async function isArticleExists(link: string): Promise<boolean> {
-  const count = await client.fetch<number>(
-    `count(*[_type == "post" && originalUrl == $url])`,
-    { url: link }
-  );
-  return count > 0;
-}
+const PIPELINE_STATUSES = ['published', 'ready-for-review', 'pending-review'] as const;
 
-// Stop words untuk filtering judul
-const STOP_WORDS = new Set([
-  'yang', 'di', 'dan', 'ini', 'itu', 'dengan', 'untuk', 'pada', 'ke', 'dari',
-  'ada', 'juga', 'akan', 'sudah', 'tidak', 'bisa', 'oleh', 'sebagai', 'dalam',
-  'adalah', 'tersebut', 'lebih', 'karena', 'belum', 'atau', 'kini', 'then',
-  'the', 'of', 'in', 'to', 'and', 'a', 'is', 'for', 'on', 'with', 'by', 'at',
-]);
-
-// Ekstrak kata kunci signifikan dari judul
-function extractKeywords(title: string): string[] {
-  return title
-    .toLowerCase()
-    .replace(/[^a-z0-9\s]/g, '')
-    .split(/\s+/)
-    .filter(w => w.length >= 3 && !STOP_WORDS.has(w));
-}
-
-// Cek apakah artikel dengan judul mirip sudah ada (fuzzy match 70%)
+// Fast dedup: cek judul mirip di post pipeline (termasuk draft — butuh write client)
 async function isSimilarTitleExists(title: string): Promise<boolean> {
-  const keywords = extractKeywords(title);
-  if (keywords.length < 2) return false;
-
-  // Ambil semua artikel existing (published atau draft)
-  const existing = await client.fetch<{ title: string }[]>(
-    `*[_type == "post" && pipelineStatus in ["published", "ready-for-review", "pending-review"]] | order(publishedAt desc)[0...500]{
-      title
-    }`
+  const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+  const recent = await getWriteClient().fetch<{ title: string }[]>(
+    `*[_type == "post" && pipelineStatus in $statuses && publishedAt > $dayAgo] | order(publishedAt desc)[0...50]{ title }`,
+    { dayAgo, statuses: PIPELINE_STATUSES }
   );
 
-  for (const post of existing) {
-    const existingKeywords = extractKeywords(post.title);
-    if (existingKeywords.length < 2) continue;
-
-    // Hitung keyword overlap (Jaccard-ish)
-    const set1 = new Set(keywords);
-    const set2 = new Set(existingKeywords);
-    let matchCount = 0;
-    for (const kw of set1) {
-      if (set2.has(kw)) matchCount++;
-    }
-
-    const similarity = matchCount / Math.max(set1.size, set2.size);
-    if (similarity >= 0.7) return true; // 70% keyword overlap = duplikat
-  }
-
-  return false;
+  return isSimilarTitle(title, recent.map((post) => post.title));
 }
 
 // Filter konten tidak layak
@@ -128,16 +84,28 @@ function getRSSImage(item: any): string | null {
   return null;
 }
 
-// Fetch RSS feed
+// Fetch RSS feed - batch check URL existence
 async function fetchFeed(feed: typeof RSS_FEEDS[0]): Promise<FetchedArticle[]> {
   try {
     const feedData = await parser.parseURL(feed.url);
+
+    // Batch: ambil semua URLs sekaligus
+    const items = (feedData.items || []).filter(item => item.title && item.link) as { title: string; link: string; [key: string]: any }[];
+    if (items.length === 0) return [];
+
+    const urls = items.map(item => item.link);
+
+    // Fetch existing originalUrls (termasuk draft) untuk dedup
+    const existingUrls = await getWriteClient().fetch<string[]>(
+      `*[_type == "post" && defined(originalUrl) && pipelineStatus in $statuses && originalUrl in $urls].originalUrl`,
+      { urls, statuses: PIPELINE_STATUSES }
+    );
+    const existingSet = new Set(existingUrls);
+
     const articles: FetchedArticle[] = [];
 
-    for (const item of feedData.items || []) {
-      if (!item.title || !item.link) continue;
-      if (await isArticleExists(item.link)) continue;
-      if (await isSimilarTitleExists(item.title)) continue;
+    for (const item of items) {
+      if (existingSet.has(item.link)) continue;
 
       // Get content - full HTML atau snippet
       const rawContent = (item as any)['content:encoded'] || item.content || item.contentSnippet || '';
@@ -201,7 +169,7 @@ async function uploadImage(imageUrl: string): Promise<string | null> {
     const buffer = Buffer.from(await res.arrayBuffer());
     if (buffer.length < 1000) return null; // Skip gambar terlalu kecil
 
-    const asset = await writeClient.assets.upload('image', buffer, {
+    const asset = await getWriteClient().assets.upload('image', buffer, {
       filename: `article-${Date.now()}.jpg`,
     });
     return asset._id;
@@ -221,7 +189,7 @@ function textToBlocks(text: string): any[] {
   }));
 }
 
-async function saveToSanity(article: FetchedArticle): Promise<string | null> {
+async function saveToSanity(article: FetchedArticle, logs: string[]): Promise<{ id: string | null; error: string | null }> {
   try {
     // Upload gambar
     let mainImage: any = undefined;
@@ -238,7 +206,7 @@ async function saveToSanity(article: FetchedArticle): Promise<string | null> {
 
     if (!mainImage) {
       console.log('Skipping article without image:', article.title);
-      return null;
+      return { id: null, error: 'No image' };
     }
 
     // Category & Author mapping
@@ -266,83 +234,63 @@ async function saveToSanity(article: FetchedArticle): Promise<string | null> {
     const catId = categoryMap[catKey] || categoryMap.nasional;
     const authorRef = authorMap[catKey] || authorMap.nasional;
 
-    // AI Rewrite
-    let rewritten: RewriteResult | null = null;
-    try {
-      rewritten = await rewriteArticle(
-        article.title,
-        article.content,
-        article.sourceName,
-        article.category
-      );
-    } catch (e: any) {
-      console.log('AI rewrite failed, using original:', e.message);
-    }
-
-    // Build document dari hasil rewrite atau original
-    const title = rewritten?.title || article.title;
+    // Simpan mentah — AI rewrite dilakukan di endpoint terpisah
+    const title = article.title;
     const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').substring(0, 100);
-    const body = rewritten?.body ? textToBlocks(rewritten.body) : textToBlocks(article.content);
-    const excerpt = rewritten?.excerpt || article.excerpt || article.content.substring(0, 200);
-    const metaDesc = (rewritten?.metaDescription || excerpt).substring(0, 160);
-    const seoTitle = (rewritten?.seoTitle || title).substring(0, 60);
+    const body = textToBlocks(article.content);
+    const excerpt = article.excerpt || article.content.substring(0, 200);
+    const metaDesc = excerpt.substring(0, 160);
+    const seoTitle = title.substring(0, 60);
 
     const doc: any = {
       _type: 'post',
       title,
       slug: { _type: 'slug', current: slug },
-      subtitle: (rewritten?.subtitle || title).substring(0, 120),
+      subtitle: title.substring(0, 120),
       excerpt,
       body,
       mainImage: {
         ...mainImage,
-        alt: rewritten?.mainImageAlt || title.substring(0, 125),
+        alt: title.substring(0, 125),
       },
       publishedAt: new Date(article.pubDate).toISOString(),
       originalUrl: article.link,
       sourceName: article.sourceName,
       pipelineStatus: 'pending-review',
-      tags: rewritten?.tags || [],
+      tags: [],
       views: 0,
       aiDisclosure: true,
-      aiRewritten: !!rewritten,
+      aiRewritten: false,
       komentarPembaca: true,
       amp: false,
       tableOfContent: true,
       metaDescription: metaDesc,
       metaTitle: seoTitle,
-      focusKeyphrase: rewritten?.focusKeyphrase || '',
+      focusKeyphrase: '',
       seo: {
         seoTitle,
         seoDescription: metaDesc,
-        ogDescription: rewritten?.ogDescription || excerpt.substring(0, 200),
+        ogDescription: excerpt.substring(0, 200),
       },
       imageCaption: `${title} | Foto: ${article.sourceName}`,
       author: { _type: 'reference' as const, _ref: authorRef },
       categories: [{ _type: 'reference' as const, _ref: catId, _key: `cat-${catId}` }],
-      // Analisis AI
-      factCheckScore: rewritten?.analysis?.factCheckScore ?? null,
-      ethicsScore: rewritten?.analysis?.ethicsScore ?? null,
-      originalityScore: rewritten?.analysis?.originalityScore ?? null,
-      plagiarismScore: rewritten?.analysis?.plagiarismScore ?? null,
-      sourceAttributions: rewritten?.analysis?.sourceAttributions || [],
-      verifiedFacts: rewritten?.analysis?.verifiedFacts || [],
-      aiMetadata: rewritten ? {
-        model: 'claude-sonnet-5-20250514',
-        rewrittenAt: new Date().toISOString(),
-        originalTitle: article.title,
-      } : undefined,
     };
 
     const docId = `post-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
-    const result = await writeClient.createIfNotExists({
-      _id: `drafts.${docId}`,
-      ...doc,
-    });
-    return result._id;
+    try {
+      const result = await getWriteClient().create({
+        _id: `drafts.${docId}`,
+        ...doc,
+      });
+      return { id: result._id, error: null };
+    } catch (err: any) {
+      console.error('Create error:', err.message, err.response?.body ? JSON.stringify(err.response.body).substring(0, 300) : '');
+      return { id: null, error: err.message };
+    }
   } catch (error: any) {
     console.error('Error saving:', error.message);
-    return null;
+    return { id: null, error: error.message };
   }
 }
 
@@ -362,6 +310,9 @@ export async function GET(request: NextRequest) {
   logs.push(`Starting fetch at ${new Date().toISOString()}`);
   logs.push(`Limits: ${feedLimit} feed(s), ${articleLimit} article(s) per feed`);
 
+  // In-memory dedup: track titles saved in this batch to catch duplicates across feeds
+  const savedTitles: string[] = [];
+
   for (const feed of enabledFeeds.slice(0, feedLimit)) {
     logs.push(`\nFetching: ${feed.name}...`);
     const articles = await fetchFeed(feed);
@@ -369,11 +320,29 @@ export async function GET(request: NextRequest) {
     logs.push(`Found ${articles.length} new, processing ${toProcess.length}`);
 
     for (const article of toProcess) {
-      const saved = await saveToSanity(article);
-      if (saved) {
+      // Dedup: skip artikel dengan judul mirip (check Sanity + in-memory batch)
+      if (await isSimilarTitleExists(article.title) || isSimilarTitle(article.title, savedTitles)) {
+        logs.push(`  ⏭ Skip duplikat: ${article.title.substring(0, 55)}`);
+        totalFetched++;
+        continue;
+      }
+
+      const result = await saveToSanity(article, logs);
+      if (result.id) {
         totalSaved++;
+        savedTitles.push(article.title);
         const hasImg = article.imageUrl ? '📷' : '  ';
         logs.push(`  ${hasImg} ${article.title.substring(0, 55)}`);
+        // Verify: try to read back
+        try {
+          const readBack = await getWriteClient().getDocument(result.id);
+          logs.push(`  Verify: ${readBack ? 'FOUND' : 'NOT FOUND'} (${result.id})`);
+        } catch (e: any) {
+          logs.push(`  Verify error: ${e.message}`);
+        }
+      }
+      if (result.error) {
+        logs.push(`  ✗ Save error: ${result.error}`);
       }
       totalFetched++;
     }

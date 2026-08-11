@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import React from "react";
 import { client } from "@/sanity/client";
 import { notFound } from "next/navigation";
@@ -8,6 +9,32 @@ import { urlFor } from "@/sanity/image";
 import { waktuLalu } from "../../lib/waktuLalu";
 
 export const dynamic = "force-dynamic";
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ tag: string }>;
+}): Promise<Metadata> {
+  const { tag } = await params;
+  const slugTag = decodeURIComponent(tag);
+  const displayTag = slugTag.replace(/-/g, " ");
+  const baseUrl = process.env.SITE_URL || "https://tanahjarang.com";
+  const url = `${baseUrl}/tag/${slugTag}`;
+
+  return {
+    title: `#${displayTag} - Berita Terkini | Warta Nusantara`,
+    description: `Artikel terbaru dengan tag #${displayTag} di Warta Nusantara.`,
+    alternates: { canonical: url },
+    openGraph: {
+      title: `#${displayTag} - Berita Terkini`,
+      description: `Artikel terbaru dengan tag #${displayTag} di Warta Nusantara.`,
+      type: "website",
+      url,
+      siteName: "Warta Nusantara",
+      locale: "id_ID",
+    },
+  };
+}
 
 interface Post {
   _id: string;

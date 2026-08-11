@@ -4,17 +4,23 @@ export default defineType({
   name: 'page',
   title: 'Halaman',
   type: 'document',
+  groups: [
+    { name: 'konten', title: 'Konten', default: true },
+    { name: 'seo', title: 'SEO & Metadata' },
+  ],
   fields: [
     defineField({
       name: 'title',
       title: 'Judul',
       type: 'string',
+      group: 'konten',
       validation: (Rule) => Rule.required(),
     }),
     defineField({
       name: 'slug',
       title: 'Slug',
       type: 'slug',
+      group: 'konten',
       options: {
         source: 'title',
         maxLength: 96,
@@ -25,12 +31,14 @@ export default defineType({
       name: 'description',
       title: 'Deskripsi',
       type: 'text',
-      description: 'Deskripsi untuk meta description (SEO)',
+      group: 'konten',
+      description: 'Deskripsi singkat halaman',
     }),
     defineField({
       name: 'body',
       title: 'Konten',
       type: 'array',
+      group: 'konten',
       of: [
         {
           type: 'block',
@@ -87,6 +95,13 @@ export default defineType({
         },
       ],
       validation: (Rule) => Rule.required(),
+    }),
+    // ─── SEO & METADATA ───
+    defineField({
+      name: 'seo',
+      title: 'SEO & Metadata',
+      type: 'seoFields',
+      group: 'seo',
     }),
   ],
   preview: {

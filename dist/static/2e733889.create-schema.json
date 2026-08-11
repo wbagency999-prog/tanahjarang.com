@@ -40,7 +40,7 @@
         "type": "slug"
       },
       {
-        "description": "Deskripsi untuk meta description (SEO)",
+        "description": "Deskripsi singkat halaman",
         "name": "description",
         "type": "text",
         "title": "Deskripsi"
@@ -174,6 +174,15 @@
         "name": "body",
         "type": "array",
         "title": "Konten"
+      },
+      {
+        "options": {
+          "collapsible": true,
+          "collapsed": false
+        },
+        "name": "seo",
+        "type": "seoFields",
+        "title": "SEO & Metadata"
       }
     ],
     "name": "page",
@@ -419,6 +428,14 @@
             "message": "Gambar utama wajib diisi"
           }
         ],
+        "fields": [
+          {
+            "description": "Deskripsi gambar untuk SEO dan accessibility.",
+            "name": "alt",
+            "type": "string",
+            "title": "Alt Text"
+          }
+        ],
         "name": "mainImage",
         "type": "image",
         "title": "Gambar Utama"
@@ -430,41 +447,18 @@
         "title": "Caption Gambar"
       },
       {
-        "validation": [
-          {
-            "level": "error",
-            "rules": [
-              {
-                "flag": "max",
-                "constraint": 60
-              }
-            ],
-            "message": "SEO Title maksimal 60 karakter"
-          }
-        ],
-        "description": "Judul untuk search engine. Maks 60 karakter.",
-        "name": "seoTitle",
-        "type": "string",
-        "title": "SEO Title"
+        "options": {
+          "collapsible": true,
+          "collapsed": false
+        },
+        "name": "seo",
+        "type": "seoFields",
+        "title": "SEO & Metadata"
       },
       {
-        "rows": 3,
-        "validation": [
-          {
-            "level": "error",
-            "rules": [
-              {
-                "flag": "max",
-                "constraint": 160
-              }
-            ],
-            "message": "SEO Description maksimal 160 karakter"
-          }
-        ],
-        "description": "Deskripsi untuk search engine. Maks 160 karakter.",
-        "name": "seoDescription",
-        "type": "text",
-        "title": "SEO Description"
+        "description": "Kata kunci utama yang ditargetkan untuk artikel ini.",
+        "name": "focusKeyphrase",
+        "type": "string"
       },
       {
         "hidden": true,
@@ -610,6 +604,188 @@
         "initialValue": "unverified",
         "name": "factCheck",
         "type": "string"
+      },
+      {
+        "validation": [
+          {
+            "level": "error",
+            "rules": [
+              {
+                "flag": "min",
+                "constraint": 0
+              },
+              {
+                "flag": "max",
+                "constraint": 100
+              }
+            ]
+          }
+        ],
+        "description": "Skor keakuratan fakta (0-100).",
+        "name": "factCheckScore",
+        "type": "number",
+        "title": "Skor Fact Check"
+      },
+      {
+        "validation": [
+          {
+            "level": "error",
+            "rules": [
+              {
+                "flag": "min",
+                "constraint": 0
+              },
+              {
+                "flag": "max",
+                "constraint": 100
+              }
+            ]
+          }
+        ],
+        "description": "Skor kepatuhan etika jurnalistik (0-100).",
+        "name": "ethicsScore",
+        "type": "number",
+        "title": "Skor Etika"
+      },
+      {
+        "validation": [
+          {
+            "level": "error",
+            "rules": [
+              {
+                "flag": "min",
+                "constraint": 0
+              },
+              {
+                "flag": "max",
+                "constraint": 100
+              }
+            ]
+          }
+        ],
+        "description": "Skor orisinalitas konten (0-100).",
+        "name": "originalityScore",
+        "type": "number",
+        "title": "Skor Orisinalitas"
+      },
+      {
+        "validation": [
+          {
+            "level": "error",
+            "rules": [
+              {
+                "flag": "min",
+                "constraint": 0
+              },
+              {
+                "flag": "max",
+                "constraint": 100
+              }
+            ]
+          }
+        ],
+        "description": "Skor deteksi plagiarisme (0-100, semakin rendah semakin baik).",
+        "name": "plagiarismScore",
+        "type": "number",
+        "title": "Skor Plagiarisme"
+      },
+      {
+        "description": "Daftar sumber yang dikutip dalam artikel.",
+        "of": [
+          {
+            "fields": [
+              {
+                "name": "sourceName",
+                "type": "string",
+                "title": "Nama Sumber"
+              },
+              {
+                "validation": [
+                  {
+                    "level": "error",
+                    "rules": [
+                      {
+                        "flag": "uri",
+                        "constraint": {
+                          "options": {
+                            "scheme": [
+                              "/^http$/",
+                              "/^https$/"
+                            ],
+                            "allowRelative": false,
+                            "relativeOnly": false,
+                            "allowCredentials": false
+                          }
+                        }
+                      }
+                    ]
+                  }
+                ],
+                "name": "sourceUrl",
+                "type": "url",
+                "title": "URL Sumber"
+              },
+              {
+                "name": "accessedAt",
+                "type": "string",
+                "title": "Diakses Pada"
+              }
+            ],
+            "type": "object"
+          }
+        ],
+        "name": "sourceAttributions",
+        "type": "array",
+        "title": "Sumber Kutipan"
+      },
+      {
+        "description": "Daftar fakta yang sudah diverifikasi.",
+        "of": [
+          {
+            "fields": [
+              {
+                "name": "claim",
+                "type": "string",
+                "title": "Klaim"
+              },
+              {
+                "options": {
+                  "list": [
+                    {
+                      "title": "Tinggi",
+                      "value": "high"
+                    },
+                    {
+                      "title": "Sedang",
+                      "value": "medium"
+                    },
+                    {
+                      "title": "Rendah",
+                      "value": "low"
+                    }
+                  ]
+                },
+                "name": "confidence",
+                "type": "string",
+                "title": "Tingkat Kepercayaan"
+              },
+              {
+                "of": [
+                  {
+                    "type": "string"
+                  }
+                ],
+                "name": "supportingSources",
+                "type": "array",
+                "title": "Sumber Pendukung"
+              }
+            ],
+            "type": "object"
+          }
+        ],
+        "name": "verifiedFacts",
+        "type": "array",
+        "title": "Fakta Terverifikasi"
       },
       {
         "initialValue": 0,
@@ -767,10 +943,168 @@
         "title": "Jabatan"
       },
       {
+        "description": "Jabatan resmi untuk structured data (Person schema).",
+        "name": "jobTitle",
+        "type": "string"
+      },
+      {
         "initialValue": false,
         "name": "verified",
         "type": "boolean",
         "title": "Terverifikasi"
+      },
+      {
+        "options": {
+          "collapsible": true,
+          "collapsed": false
+        },
+        "fields": [
+          {
+            "validation": [
+              {
+                "level": "error",
+                "rules": [
+                  {
+                    "flag": "uri",
+                    "constraint": {
+                      "options": {
+                        "scheme": [
+                          "/^http$/",
+                          "/^https$/"
+                        ],
+                        "allowRelative": false,
+                        "relativeOnly": false,
+                        "allowCredentials": false
+                      }
+                    }
+                  }
+                ]
+              }
+            ],
+            "description": "URL profil Twitter/X",
+            "name": "twitter",
+            "type": "url",
+            "title": "Twitter/X"
+          },
+          {
+            "validation": [
+              {
+                "level": "error",
+                "rules": [
+                  {
+                    "flag": "uri",
+                    "constraint": {
+                      "options": {
+                        "scheme": [
+                          "/^http$/",
+                          "/^https$/"
+                        ],
+                        "allowRelative": false,
+                        "relativeOnly": false,
+                        "allowCredentials": false
+                      }
+                    }
+                  }
+                ]
+              }
+            ],
+            "description": "URL profil Instagram",
+            "name": "instagram",
+            "type": "url"
+          },
+          {
+            "validation": [
+              {
+                "level": "error",
+                "rules": [
+                  {
+                    "flag": "uri",
+                    "constraint": {
+                      "options": {
+                        "scheme": [
+                          "/^http$/",
+                          "/^https$/"
+                        ],
+                        "allowRelative": false,
+                        "relativeOnly": false,
+                        "allowCredentials": false
+                      }
+                    }
+                  }
+                ]
+              }
+            ],
+            "description": "URL profil Facebook",
+            "name": "facebook",
+            "type": "url"
+          },
+          {
+            "validation": [
+              {
+                "level": "error",
+                "rules": [
+                  {
+                    "flag": "uri",
+                    "constraint": {
+                      "options": {
+                        "scheme": [
+                          "/^http$/",
+                          "/^https$/"
+                        ],
+                        "allowRelative": false,
+                        "relativeOnly": false,
+                        "allowCredentials": false
+                      }
+                    }
+                  }
+                ]
+              }
+            ],
+            "description": "URL profil LinkedIn",
+            "name": "linkedin",
+            "type": "url",
+            "title": "LinkedIn"
+          },
+          {
+            "validation": [
+              {
+                "level": "error",
+                "rules": [
+                  {
+                    "flag": "uri",
+                    "constraint": {
+                      "options": {
+                        "scheme": [
+                          "/^http$/",
+                          "/^https$/"
+                        ],
+                        "allowRelative": false,
+                        "relativeOnly": false,
+                        "allowCredentials": false
+                      }
+                    }
+                  }
+                ]
+              }
+            ],
+            "description": "URL profil/channel YouTube",
+            "name": "youtube",
+            "type": "url",
+            "title": "YouTube"
+          }
+        ],
+        "name": "socialLinks",
+        "type": "object",
+        "title": "Link Media Sosial"
+      },
+      {
+        "options": {
+          "collapsible": true,
+          "collapsed": false
+        },
+        "name": "seo",
+        "type": "seoFields",
+        "title": "SEO & Metadata"
       }
     ],
     "name": "author",
@@ -819,13 +1153,132 @@
       },
       {
         "rows": 3,
+        "description": "Deskripsi singkat kategori untuk ditampilkan di halaman.",
         "name": "description",
         "type": "text",
         "title": "Deskripsi"
+      },
+      {
+        "options": {
+          "collapsible": true,
+          "collapsed": false
+        },
+        "name": "seo",
+        "type": "seoFields",
+        "title": "SEO & Metadata"
       }
     ],
     "name": "category",
     "type": "document",
     "title": "Kategori"
+  },
+  {
+    "options": {
+      "collapsible": true,
+      "collapsed": false
+    },
+    "fields": [
+      {
+        "validation": [
+          {
+            "level": "error",
+            "rules": [
+              {
+                "flag": "max",
+                "constraint": 60
+              }
+            ],
+            "message": "SEO Title maksimal 60 karakter"
+          }
+        ],
+        "description": "Judul untuk search engine. Maks 60 karakter.",
+        "name": "seoTitle",
+        "type": "string",
+        "title": "SEO Title"
+      },
+      {
+        "rows": 3,
+        "validation": [
+          {
+            "level": "error",
+            "rules": [
+              {
+                "flag": "max",
+                "constraint": 160
+              }
+            ],
+            "message": "SEO Description maksimal 160 karakter"
+          }
+        ],
+        "description": "Deskripsi untuk search engine. Maks 160 karakter.",
+        "name": "seoDescription",
+        "type": "text",
+        "title": "SEO Description"
+      },
+      {
+        "rows": 2,
+        "validation": [
+          {
+            "level": "error",
+            "rules": [
+              {
+                "flag": "max",
+                "constraint": 200
+              }
+            ],
+            "message": "OG Description maksimal 200 karakter"
+          }
+        ],
+        "description": "Deskripsi untuk Open Graph/social media. Maks 200 karakter.",
+        "name": "ogDescription",
+        "type": "text",
+        "title": "OG Description"
+      },
+      {
+        "options": {
+          "hotspot": true
+        },
+        "description": "Gambar untuk social media sharing. Ideal: 1200x630px.",
+        "name": "ogImage",
+        "type": "image",
+        "title": "Gambar Open Graph"
+      },
+      {
+        "validation": [
+          {
+            "level": "error",
+            "rules": [
+              {
+                "flag": "uri",
+                "constraint": {
+                  "options": {
+                    "scheme": [
+                      "/^http$/",
+                      "/^https$/"
+                    ],
+                    "allowRelative": false,
+                    "relativeOnly": false,
+                    "allowCredentials": false
+                  }
+                }
+              }
+            ]
+          }
+        ],
+        "description": "Isi jika artikel ini sindikasi/dari sumber lain.",
+        "name": "canonicalUrl",
+        "type": "url",
+        "title": "Canonical URL"
+      },
+      {
+        "initialValue": false,
+        "description": "Centang untuk mencegah indeks oleh search engine.",
+        "name": "noIndex",
+        "type": "boolean"
+      }
+    ],
+    "name": "seoFields",
+    "type": "object",
+    "title": "SEO Fields"
   }
 ]

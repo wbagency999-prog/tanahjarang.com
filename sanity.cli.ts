@@ -5,8 +5,8 @@ export default defineCliConfig({
     projectId: '7kf72dsd',
     dataset: 'production',
   },
-  studioHost: 'tanahjarang',
+  studioHost: 'fff-studio',
   deployment: {
-    appId: 'vujqoo9cki10b9cvej7oejfb',
+    appId: 'fnd62gu8dnwoewm4ed3gtyjh',
   },
 })

@@ -4,7 +4,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { client } from '@/sanity/client';
-import { writeClient } from '@/sanity/writeClient';
+import { getWriteClient } from '@/sanity/writeClient';
 import { rewriteArticle } from '@/lib/ai-rewriter';
 
 export const dynamic = 'force-dynamic';
@@ -87,7 +87,7 @@ export async function GET(request: NextRequest) {
   logs.push(`Starting AI rewrite at ${new Date().toISOString()}`);
 
   // Ambil artikel dengan status pending-review dan punya gambar
-  const posts = await client.fetch<PendingPost[]>(
+  const posts = await getWriteClient().fetch<PendingPost[]>(
     `*[_type == "post" && pipelineStatus == "pending-review" && defined(mainImage)] | order(publishedAt desc)[0...${limit}]{
       _id,
       title,
@@ -130,9 +130,13 @@ export async function GET(request: NextRequest) {
       const metaDesc = rewritten.metaDescription || rewritten.excerpt.substring(0, 160);
       const seoTitle = (rewritten.seoTitle || rewritten.title).substring(0, 60);
       const subtitle = (rewritten.subtitle || rewritten.title).substring(0, 120);
+      const focusKeyphrase = rewritten.focusKeyphrase || '';
+      const ogDescription = rewritten.ogDescription || rewritten.excerpt.substring(0, 200);
+      const mainImageAlt = rewritten.mainImageAlt || rewritten.title.substring(0, 125);
+      const imageCaption = rewritten.imageCaption || rewritten.mainImageAlt || rewritten.title.substring(0, 150);
 
       // Update document in Sanity with ALL required fields
-      await writeClient
+      await getWriteClient()
         .patch(post._id)
         .set({
           title: rewritten.title,
@@ -143,16 +147,29 @@ export async function GET(request: NextRequest) {
           tags: rewritten.tags || [],
           metaDescription: metaDesc,
           metaTitle: seoTitle,
-          seoTitle: seoTitle,
-          seoDescription: metaDesc,
+          focusKeyphrase: focusKeyphrase,
+          'mainImage.alt': mainImageAlt,
+          imageCaption: imageCaption,
+          seo: {
+            seoTitle: seoTitle,
+            seoDescription: metaDesc,
+            ogDescription: ogDescription,
+          },
           pipelineStatus: 'ready-for-review',
           aiDisclosure: true,
           aiRewritten: true,
           komentarPembaca: true,
           amp: false,
           tableOfContent: true,
+          // Analisis AI
+          factCheckScore: rewritten.analysis?.factCheckScore ?? null,
+          ethicsScore: rewritten.analysis?.ethicsScore ?? null,
+          originalityScore: rewritten.analysis?.originalityScore ?? null,
+          plagiarismScore: rewritten.analysis?.plagiarismScore ?? null,
+          sourceAttributions: rewritten.analysis?.sourceAttributions || [],
+          verifiedFacts: rewritten.analysis?.verifiedFacts || [],
           aiMetadata: {
-            model: 'claude-sonnet-5-20250514',
+            model: 'claude-haiku-4-5-20251001',
             rewrittenAt: new Date().toISOString(),
             originalTitle: post.title,
           },

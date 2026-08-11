@@ -1,10 +1,26 @@
 import type { Metadata } from "next";
+import { Plus_Jakarta_Sans, Lora } from "next/font/google";
 import { client } from "@/sanity/client";
 import SiteHeader from "./components/SiteHeader";
 import SiteFooter from "./components/SiteFooter";
 import BackToTop from "./components/BackToTop";
 import ScrollProgress from "./components/ScrollProgress";
 import "./globals.css";
+
+const plusJakarta = Plus_Jakarta_Sans({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700", "800"],
+  display: "swap",
+  variable: "--font-plus-jakarta",
+});
+
+const lora = Lora({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+  style: ["normal", "italic"],
+  display: "swap",
+  variable: "--font-lora",
+});
 
 export const metadata: Metadata = {
   title: "Warta Nusantara",
@@ -56,11 +72,8 @@ export default async function RootLayout({
         <meta name="apple-mobile-web-app-title" content="Warta Nusantara" />
         <link rel="alternate" type="application/rss+xml" title="Warta Nusantara RSS" href={`${baseUrl}/api/rss`} />
         <link rel="sitemap" type="application/xml" href={`${baseUrl}/sitemap.xml`} />
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&display=swap" rel="stylesheet" />
       </head>
-      <body className="min-h-full flex flex-col bg-white text-[#1A1815]" suppressHydrationWarning>
+      <body className={`min-h-full flex flex-col bg-white text-[#1A1815] ${plusJakarta.variable} ${lora.variable} font-sans`} suppressHydrationWarning>
         <SiteHeader categories={categories} />
         <div className="flex-1">{children}</div>
         <SiteFooter categories={categories} />

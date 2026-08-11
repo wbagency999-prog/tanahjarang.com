@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import Image from "next/image";
 import AdSlot from "./AdSlot";
 import { urlFor } from "@/sanity/image";
 import { articleHref } from "../lib/articleHref";
@@ -43,7 +44,7 @@ export default function LoadMorePosts({ posts }: { posts: Post[] }) {
               <div className="aspect-[4/3] w-20 shrink-0 overflow-hidden rounded bg-[#1A1815]/10 sm:w-32">
                 {post.mainImage && (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={urlFor(post.mainImage).width(400).url()} alt={post.title} width={192} height={144} loading="lazy" className="h-full w-full object-cover" />
+                  <Image src={urlFor(post.mainImage).width(400).url()} alt={post.title} width={192} height={144} loading="lazy" className="h-full w-full object-cover" />
                 )}
               </div>
               <div>

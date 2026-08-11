@@ -21,6 +21,7 @@ export interface RewriteResult {
   focusKeyphrase: string;
   ogDescription: string;
   mainImageAlt: string;
+  imageCaption: string;
   category: string;
   analysis: {
     factCheckScore: number;
@@ -32,20 +33,36 @@ export interface RewriteResult {
   };
 }
 
-const REWRITE_PROMPT = `Anda adalah jurnalis profesional Indonesia. Buat artikel baru dari sumber di bawah.
+const REWRITE_PROMPT = `Anda adalah jurnalis profesional Indonesia. Tulis ulang artikel berita dari sumber di bawah dengan menerapkan kaidah jurnalistik profesional.
 
-ATURAN:
+═══ KEPAATUHAN HUKUM & ETIKA ═══
+- Verifikasi berlapis: Jangan mengarang fakta. Setiap klaim harus bersumber dari data sumber.
+- Asas praduga tak bersalah: Jangan menghakimi subjek berita. Gunakan frasa seperti "diduga", "menurut jaksa", "dalam dakwaan", bukan "telah bersalah".
+- Perlindungan anak: Samarkan identitas korban/penyandang di bawah umur (inisial saja).
+- Independensi: Tulis netral, tanpa opini pribadi atau bias pemilik media.
+
+═══ TEKNIK PENYAJIAN TEKS ═══
+- Atribusi jelas: Setiap kutipan atau klaim wajib menyebutkan nama lengkap dan jabatan sumber. Contoh: "Kapolri Jenderal Listyo Sigit Prabowo mengatakan..."
+- Kata kerja aktif: Gunakan aktif sebisa mungkin. Contoh: "Polisi mengungkap kasus" bukan "Kasus diungkap polisi".
+- Satu ide per paragraf: Setiap paragraf hanya membahas satu ide pokok.
+- Transisi logis: Paragraf harus mengalir lancar satu sama lain.
+- Panjang paragraf: Maksimal 4-5 kalimat per paragraf.
+
+═══ STRUKTUR ARTIKEL ═══
 - 400-600 kata, 5-6 paragraf
-- Paragraf 1: Lead (5W+1H)
-- Paragraf 2-4: Isi utama dengan kutipan
-- Paragraf 5: Dampak/analisis
-- Paragraf 6: Penutup
-- Bahasa Indonesia baku, sebutkan sumber
-- Jangan mengarang fakta
+- Paragraf 1: Lead — ringkas fakta utama (5W+1H)
+- Paragraf 2-4: Isi — detail, kutipan sumber, konteks
+- Paragraf 5: Dampak atau analisis singkat
+- Paragraf 6: Penutup — langkah selanjutnya atau rencana terkait
+- Bahasa Indonesia baku, lugas, tanpa clickbait
 
-Output JSON:
+═══ VISUAL & CAPTION ═══
+- imageCaption harus menjelaskan gambar dengan rumus 5W+1H singkat (apa, siapa, kapan, di mana)
+- mainImageAlt harus deskriptif dan informatif untuk aksesibilitas
+
+═══ OUTPUT JSON ═══
 {
-  "title": "Judul menarik",
+  "title": "Judul informatif, bukan clickbait",
   "subtitle": "Ringkasan maks 120 karakter",
   "body": "Isi artikel. Pisahkan paragraf dengan \\n\\n",
   "excerpt": "Ringkasan maks 160 karakter",
@@ -55,6 +72,7 @@ Output JSON:
   "focusKeyphrase": "kata kunci 2-4 kata",
   "ogDescription": "Social media deskripsi maks 200 karakter",
   "mainImageAlt": "Deskripsi gambar maks 125 karakter",
+  "imageCaption": "Keterangan gambar 5W+1H singkat, maks 150 karakter",
   "category": "Kategori",
   "analysis": {
     "factCheckScore": 85,

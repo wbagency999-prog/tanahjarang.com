@@ -116,6 +116,14 @@ export default defineType({
       type: 'image',
       group: 'media',
       options: { hotspot: true },
+      fields: [
+        {
+          name: 'alt',
+          type: 'string',
+          title: 'Alt Text',
+          description: 'Deskripsi gambar untuk SEO dan accessibility.',
+        },
+      ],
       validation: (Rule) => Rule.required().error('Gambar utama wajib diisi'),
     }),
     defineField({
@@ -128,21 +136,17 @@ export default defineType({
 
     // ─── SEO & METADATA ───
     defineField({
-      name: 'seoTitle',
-      title: 'SEO Title',
-      type: 'string',
+      name: 'seo',
+      title: 'SEO & Metadata',
+      type: 'seoFields',
       group: 'seo',
-      description: 'Judul untuk search engine. Maks 60 karakter.',
-      validation: (Rule) => Rule.max(60).error('SEO Title maksimal 60 karakter'),
     }),
     defineField({
-      name: 'seoDescription',
-      title: 'SEO Description',
-      type: 'text',
-      rows: 3,
+      name: 'focusKeyphrase',
+      title: 'Focus Keyphrase',
+      type: 'string',
       group: 'seo',
-      description: 'Deskripsi untuk search engine. Maks 160 karakter.',
-      validation: (Rule) => Rule.max(160).error('SEO Description maksimal 160 karakter'),
+      description: 'Kata kunci utama yang ditargetkan untuk artikel ini.',
     }),
     defineField({
       name: 'metaTitle',
@@ -235,6 +239,84 @@ export default defineType({
         ],
       },
       initialValue: 'unverified',
+    }),
+    // ─── ANALISIS AI ───
+    defineField({
+      name: 'factCheckScore',
+      title: 'Skor Fact Check',
+      type: 'number',
+      group: 'lanjutan',
+      description: 'Skor keakuratan fakta (0-100).',
+      validation: (Rule) => Rule.min(0).max(100),
+    }),
+    defineField({
+      name: 'ethicsScore',
+      title: 'Skor Etika',
+      type: 'number',
+      group: 'lanjutan',
+      description: 'Skor kepatuhan etika jurnalistik (0-100).',
+      validation: (Rule) => Rule.min(0).max(100),
+    }),
+    defineField({
+      name: 'originalityScore',
+      title: 'Skor Orisinalitas',
+      type: 'number',
+      group: 'lanjutan',
+      description: 'Skor orisinalitas konten (0-100).',
+      validation: (Rule) => Rule.min(0).max(100),
+    }),
+    defineField({
+      name: 'plagiarismScore',
+      title: 'Skor Plagiarisme',
+      type: 'number',
+      group: 'lanjutan',
+      description: 'Skor deteksi plagiarisme (0-100, semakin rendah semakin baik).',
+      validation: (Rule) => Rule.min(0).max(100),
+    }),
+    defineField({
+      name: 'sourceAttributions',
+      title: 'Sumber Kutipan',
+      type: 'array',
+      group: 'lanjutan',
+      description: 'Daftar sumber yang dikutip dalam artikel.',
+      of: [
+        {
+          type: 'object',
+          fields: [
+            { name: 'sourceName', type: 'string', title: 'Nama Sumber' },
+            { name: 'sourceUrl', type: 'url', title: 'URL Sumber' },
+            { name: 'accessedAt', type: 'string', title: 'Diakses Pada' },
+          ],
+        },
+      ],
+    }),
+    defineField({
+      name: 'verifiedFacts',
+      title: 'Fakta Terverifikasi',
+      type: 'array',
+      group: 'lanjutan',
+      description: 'Daftar fakta yang sudah diverifikasi.',
+      of: [
+        {
+          type: 'object',
+          fields: [
+            { name: 'claim', type: 'string', title: 'Klaim' },
+            {
+              name: 'confidence',
+              type: 'string',
+              title: 'Tingkat Kepercayaan',
+              options: {
+                list: [
+                  { title: 'Tinggi', value: 'high' },
+                  { title: 'Sedang', value: 'medium' },
+                  { title: 'Rendah', value: 'low' },
+                ],
+              },
+            },
+            { name: 'supportingSources', type: 'array', of: [{ type: 'string' }], title: 'Sumber Pendukung' },
+          ],
+        },
+      ],
     }),
 
     // ─── HIDDEN FIELDS (pipeline internals) ───

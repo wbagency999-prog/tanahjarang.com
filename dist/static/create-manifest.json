@@ -1,5 +1,5 @@
 {
-  "createdAt": "2026-08-10T10:43:09.830Z",
+  "createdAt": "2026-08-10T12:41:50.492Z",
   "studioVersion": "6.8.0",
   "version": 3,
   "workspaces": [
@@ -13,7 +13,7 @@
       },
       "name": "tanahjarang",
       "projectId": "7kf72dsd",
-      "schema": "1f082b58.create-schema.json",
+      "schema": "2e733889.create-schema.json",
       "title": "Warta Nusantara",
       "tools": "a1fd46b5.create-tools.json"
     }

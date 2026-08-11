@@ -6,6 +6,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getWriteClient } from '@/sanity/writeClient';
 
 export const dynamic = 'force-dynamic';
+export const maxDuration = 60;
 
 export async function GET(request: NextRequest) {
   const secret = request.nextUrl.searchParams.get('secret');
@@ -20,9 +21,11 @@ export async function GET(request: NextRequest) {
 
   logs.push(`Starting publish at ${new Date().toISOString()}`);
 
-  // Ambil SEMUA draft articles (sudah final dari fetch)
+  const limit = parseInt(request.nextUrl.searchParams.get('limit') || '2');
+
+  // Ambil draft articles yang sudah ready-for-review (sudah di-rewrite AI)
   const posts = await writeClient.fetch<{ _id: string; title: string }[]>(
-    `*[_type == "post" && _id in path("drafts.**")] | order(publishedAt desc)[0...50]{
+    `*[_type == "post" && _id in path("drafts.**") && pipelineStatus == "ready-for-review"] | order(publishedAt desc)[0...${limit}]{
       _id,
       title,
       ...
@@ -58,6 +61,7 @@ export async function GET(request: NextRequest) {
         _id: publishedId,
         _type,
         ...data,
+        publishedAt: new Date().toISOString(),
         pipelineStatus: 'published',
       });
       logs.push(`  ✓ Published as: ${publishedId}`);

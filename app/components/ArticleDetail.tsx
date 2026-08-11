@@ -3,6 +3,7 @@ import { writeClient } from "@/sanity/writeClient";
 import { urlFor } from "@/sanity/image";
 import { PortableText } from "@portabletext/react";
 import { notFound } from "next/navigation";
+import Image from "next/image";
 import ShareButtons from "./ShareButtons";
 import ShareMore from "./ShareMore";
 import Breadcrumb from "./Breadcrumb";
@@ -67,6 +68,15 @@ interface Post {
   subtitle?: string;
   slug: { current: string };
   excerpt: string;
+  metaDescription?: string;
+  seo?: {
+    seoTitle?: string;
+    seoDescription?: string;
+    ogDescription?: string;
+    ogImage?: any;
+    canonicalUrl?: string;
+    noIndex?: boolean;
+  };
   mainImage: any;
   publishedAt: string;
   updatedAt?: string;
@@ -99,6 +109,8 @@ async function getPost(slug: string): Promise<Post | null> {
       subtitle,
       slug,
       excerpt,
+      metaDescription,
+      seo,
       mainImage,
       publishedAt,
       updatedAt,
@@ -177,28 +189,49 @@ async function incrementViews(id: string) {
 
 /* ───────── Metadata ───────── */
 
+const baseUrl = process.env.SITE_URL || "https://tanahjarang.com";
+
 export async function getArticleMetadata(slug: string): Promise<Metadata> {
   const post = await getPost(slug);
   if (!post) return {};
 
-  const imageUrl = post.mainImage ? urlFor(post.mainImage).width(1200).height(675).url() : undefined;
+  // Use ogImage if available, fallback to mainImage
+  const ogImageUrl = post.seo?.ogImage
+    ? urlFor(post.seo.ogImage).width(1200).height(675).url()
+    : post.mainImage
+      ? urlFor(post.mainImage).width(1200).height(675).url()
+      : undefined;
+
+  const categorySlug = post.categories?.[0]?.slug?.current || "nasional";
+  const articleUrl = `${baseUrl}/${categorySlug}/${slug}`;
+  const canonicalUrl = post.seo?.canonicalUrl || articleUrl;
+  const description = post.seo?.seoDescription || post.excerpt || post.metaDescription;
+  const ogDescription = post.seo?.ogDescription || post.seo?.seoDescription || post.excerpt || post.metaDescription;
 
   return {
     title: `${post.title} | Warta Nusantara`,
-    description: post.excerpt,
+    description,
+    alternates: {
+      canonical: canonicalUrl,
+    },
+    robots: post.seo?.noIndex ? { index: false, follow: false } : undefined,
     openGraph: {
       title: post.title,
-      description: post.excerpt,
+      description: ogDescription,
       type: "article",
+      url: canonicalUrl,
+      siteName: "Warta Nusantara",
+      locale: "id_ID",
       publishedTime: post.publishedAt,
+      modifiedTime: post.updatedAt || post.publishedAt,
       authors: post.author?.name ? [post.author.name] : [],
-      images: imageUrl ? [{ url: imageUrl, width: 1200, height: 675 }] : [],
+      images: ogImageUrl ? [{ url: ogImageUrl, width: 1200, height: 675, alt: post.title }] : [],
     },
     twitter: {
       card: "summary_large_image",
       title: post.title,
-      description: post.excerpt,
-      images: imageUrl ? [imageUrl] : [],
+      description,
+      images: ogImageUrl ? [ogImageUrl] : [],
     },
   };
 }
@@ -577,7 +610,7 @@ export default async function ArticleDetail({ slug }: { slug: string }) {
             <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-b border-black/5 pb-4">
               <div className="flex items-center gap-3">
                 {post.author?.image ? (
-                  <img src={urlFor(post.author.image).width(80).height(80).url()} alt={post.author.name} className="h-10 w-10 rounded-full object-cover" />
+                  <Image src={urlFor(post.author.image).width(80).height(80).url()} alt={post.author.name} width={40} height={40} className="h-10 w-10 rounded-full object-cover" />
                 ) : (
                   <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#CC181F]/10 text-sm font-bold text-[#CC181F]">
                     {(post.author?.name ?? "R")[0]}
@@ -824,7 +857,7 @@ export default async function ArticleDetail({ slug }: { slug: string }) {
                     <a key={r._id} href={articleHref(r)} className="group flex gap-3 sm:block">
                       <div className="h-16 w-24 shrink-0 overflow-hidden rounded bg-[#1A1815]/10 sm:mb-2 sm:aspect-video sm:w-full">
                         {r.mainImage && (
-                          <img src={urlFor(r.mainImage).width(300).url()} alt={r.title} width={300} height={200} loading="lazy" className="h-full w-full object-cover" />
+                          <Image src={urlFor(r.mainImage).width(300).url()} alt={r.title} width={300} height={200} loading="lazy" className="h-full w-full object-cover" />
                         )}
                       </div>
                       <p className="min-w-0 text-sm font-semibold leading-snug line-clamp-2 group-hover:text-[#CC181F]">

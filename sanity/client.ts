@@ -9,6 +9,7 @@ export function getClient(): SanityClient {
       dataset: 'production',
       apiVersion: '2024-01-01',
       useCdn: false,
+      timeout: 10000,
     })
   }
   return _client
