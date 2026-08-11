@@ -36,13 +36,61 @@ interface FetchedArticle {
   category: string;
 }
 
-// Cek apakah artikel sudah ada
+// Cek apakah artikel sudah ada (berdasarkan URL)
 async function isArticleExists(link: string): Promise<boolean> {
   const count = await client.fetch<number>(
     `count(*[_type == "post" && originalUrl == $url])`,
     { url: link }
   );
   return count > 0;
+}
+
+// Stop words untuk filtering judul
+const STOP_WORDS = new Set([
+  'yang', 'di', 'dan', 'ini', 'itu', 'dengan', 'untuk', 'pada', 'ke', 'dari',
+  'ada', 'juga', 'akan', 'sudah', 'tidak', 'bisa', 'oleh', 'sebagai', 'dalam',
+  'adalah', 'tersebut', 'lebih', 'karena', 'belum', 'atau', 'kini', 'then',
+  'the', 'of', 'in', 'to', 'and', 'a', 'is', 'for', 'on', 'with', 'by', 'at',
+]);
+
+// Ekstrak kata kunci signifikan dari judul
+function extractKeywords(title: string): string[] {
+  return title
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, '')
+    .split(/\s+/)
+    .filter(w => w.length >= 3 && !STOP_WORDS.has(w));
+}
+
+// Cek apakah artikel dengan judul mirip sudah ada (fuzzy match 70%)
+async function isSimilarTitleExists(title: string): Promise<boolean> {
+  const keywords = extractKeywords(title);
+  if (keywords.length < 2) return false;
+
+  // Ambil semua artikel existing (published atau draft)
+  const existing = await client.fetch<{ title: string }[]>(
+    `*[_type == "post" && pipelineStatus in ["published", "ready-for-review", "pending-review"]] | order(publishedAt desc)[0...500]{
+      title
+    }`
+  );
+
+  for (const post of existing) {
+    const existingKeywords = extractKeywords(post.title);
+    if (existingKeywords.length < 2) continue;
+
+    // Hitung keyword overlap (Jaccard-ish)
+    const set1 = new Set(keywords);
+    const set2 = new Set(existingKeywords);
+    let matchCount = 0;
+    for (const kw of set1) {
+      if (set2.has(kw)) matchCount++;
+    }
+
+    const similarity = matchCount / Math.max(set1.size, set2.size);
+    if (similarity >= 0.7) return true; // 70% keyword overlap = duplikat
+  }
+
+  return false;
 }
 
 // Filter konten tidak layak
@@ -89,6 +137,7 @@ async function fetchFeed(feed: typeof RSS_FEEDS[0]): Promise<FetchedArticle[]> {
     for (const item of feedData.items || []) {
       if (!item.title || !item.link) continue;
       if (await isArticleExists(item.link)) continue;
+      if (await isSimilarTitleExists(item.title)) continue;
 
       // Get content - full HTML atau snippet
       const rawContent = (item as any)['content:encoded'] || item.content || item.contentSnippet || '';
