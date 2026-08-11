@@ -8,6 +8,7 @@ import { shouldExclude } from '@/lib/content-filters';
 import { isSimilarTitle } from '@/lib/title-dedup';
 import { aiDeduplicate } from '@/lib/ai-dedup';
 import { fetchAllPopular, type PopularArticle } from '@/lib/popular-scraper';
+import { rewriteArticle } from '@/lib/ai-rewriter';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
@@ -71,7 +72,7 @@ function textToBlocks(text: string): any[] {
   }));
 }
 
-async function saveToSanity(article: PopularArticle): Promise<{ id: string | null; error: string | null }> {
+async function saveToSanity(article: PopularArticle): Promise<{ id: string | null; docId: string | null; error: string | null }> {
   try {
     let mainImage: any = undefined;
     if (article.imageUrl) {
@@ -80,7 +81,7 @@ async function saveToSanity(article: PopularArticle): Promise<{ id: string | nul
         mainImage = { _type: 'image', asset: { _type: 'reference', _ref: assetId }, alt: article.title.substring(0, 125) };
       }
     }
-    if (!mainImage) return { id: null, error: 'No image' };
+    if (!mainImage) return { id: null, docId: null, error: 'No image' };
 
     const catKey = article.category.toLowerCase();
     const catId = CATEGORY_MAP[catKey] || CATEGORY_MAP.nasional;
@@ -112,9 +113,9 @@ async function saveToSanity(article: PopularArticle): Promise<{ id: string | nul
       author: { _type: 'reference' as const, _ref: authorRef },
       categories: [{ _type: 'reference' as const, _ref: catId, _key: `cat-${catId}` }],
     });
-    return { id: result._id, error: null };
+    return { id: result._id, docId: `drafts.${docId}`, error: null };
   } catch (error: any) {
-    return { id: null, error: error.message };
+    return { id: null, docId: null, error: error.message };
   }
 }
 
@@ -169,8 +170,9 @@ export async function GET(request: NextRequest) {
           send(`AI dedup: ${aiResult.totalDuplicates} semantic duplicates found`);
         }
 
-        // Save
+        // Save + AI Rewrite
         let totalSaved = 0;
+        let totalRewritten = 0;
         let totalFetched = 0;
         for (let i = 0; i < wordFiltered.length; i++) {
           const article = wordFiltered[i];
@@ -181,10 +183,64 @@ export async function GET(request: NextRequest) {
           }
 
           const result = await saveToSanity(article);
-          if (result.id) {
+          if (result.id && result.docId) {
             totalSaved++;
             savedTitles.push(article.title);
-            send(`  ✓ [${article.sourceName}] ${article.title.substring(0, 50)}`);
+            send(`  📰 [${article.sourceName}] ${article.title.substring(0, 50)}`);
+
+            // AI Rewrite langsung
+            try {
+              const content = article.content || article.title;
+              if (content.length > 50) {
+                const rewritten = await rewriteArticle(
+                  article.title, content, article.sourceName || 'Unknown', article.category || 'Nasional'
+                );
+
+                const slug = rewritten.title
+                  .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').substring(0, 100);
+
+                await getWriteClient()
+                  .patch(result.docId)
+                  .set({
+                    title: rewritten.title,
+                    subtitle: (rewritten.subtitle || rewritten.title).substring(0, 120),
+                    slug: { _type: 'slug', current: slug },
+                    excerpt: rewritten.excerpt,
+                    body: textToBlocks(rewritten.body),
+                    tags: rewritten.tags || [],
+                    metaDescription: (rewritten.metaDescription || rewritten.excerpt.substring(0, 160)),
+                    metaTitle: (rewritten.seoTitle || rewritten.title).substring(0, 60),
+                    focusKeyphrase: rewritten.focusKeyphrase || '',
+                    'mainImage.alt': (rewritten.mainImageAlt || rewritten.title).substring(0, 125),
+                    imageCaption: (rewritten.imageCaption || rewritten.mainImageAlt || rewritten.title).substring(0, 150),
+                    seo: {
+                      seoTitle: (rewritten.seoTitle || rewritten.title).substring(0, 60),
+                      seoDescription: (rewritten.metaDescription || rewritten.excerpt.substring(0, 160)),
+                      ogDescription: (rewritten.ogDescription || rewritten.excerpt.substring(0, 200)),
+                    },
+                    pipelineStatus: 'ready-for-review',
+                    aiDisclosure: true,
+                    aiRewritten: true,
+                    factCheckScore: rewritten.analysis?.factCheckScore ?? null,
+                    ethicsScore: rewritten.analysis?.ethicsScore ?? null,
+                    originalityScore: rewritten.analysis?.originalityScore ?? null,
+                    plagiarismScore: rewritten.analysis?.plagiarismScore ?? null,
+                    sourceAttributions: rewritten.analysis?.sourceAttributions || [],
+                    verifiedFacts: rewritten.analysis?.verifiedFacts || [],
+                    aiMetadata: {
+                      model: 'claude-haiku-4-5-20251001',
+                      rewrittenAt: new Date().toISOString(),
+                      originalTitle: article.title,
+                    },
+                  })
+                  .commit();
+
+                totalRewritten++;
+                send(`    ✍️ AI rewrite: ${rewritten.title.substring(0, 50)}`);
+              }
+            } catch (rewriteError: any) {
+              send(`    ⚠ Rewrite gagal: ${rewriteError.message.substring(0, 40)}`);
+            }
           }
           if (result.error) {
             send(`  ✗ ${result.error}: ${article.title.substring(0, 40)}`);
@@ -192,7 +248,7 @@ export async function GET(request: NextRequest) {
           totalFetched++;
         }
 
-        send(`\nDone! ${totalFetched} fetched, ${totalSaved} saved`);
+        send(`\nDone! ${totalFetched} fetched, ${totalSaved} saved, ${totalRewritten} rewritten`);
         controller.close();
       } catch (error: any) {
         send(`Error: ${error.message}`);
