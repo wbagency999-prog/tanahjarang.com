@@ -471,6 +471,27 @@ async function fetchFromKumparan(): Promise<PopularArticle[]> {
   }
 }
 
+// ═══ CONTENT CLEANER ═══
+
+export function cleanContent(text: string): string {
+  if (!text) return text;
+  let cleaned = text;
+
+  // Hapus "Baca juga: ..." / "Simak juga: ..." / "Lihat juga: ..."
+  cleaned = cleaned.replace(/(?:Baca|Simak|Lihat)\s+juga\s*:\s*[^\n]+/gi, '');
+
+  // Hapus copyright
+  cleaned = cleaned.replace(/Copyright\s+\d{4}\s*-\s*\d{4}\s+[^\n]+/gi, '');
+
+  // Hapus header "KOTA, NAMA MEDIA.com -" di awal
+  cleaned = cleaned.replace(/^[A-Z\s]+,\s*\w+\.com\s*[-–—]\s*/m, '');
+
+  // Hapus spasi berlebih
+  cleaned = cleaned.replace(/\n{3,}/g, '\n\n').trim();
+
+  return cleaned;
+}
+
 // ═══ MAIN ═══
 
 // Fetch og:image + content dari halaman artikel (selalu punya gambar)

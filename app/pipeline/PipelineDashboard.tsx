@@ -73,10 +73,12 @@ export default function PipelineDashboard() {
     setRuns(prev => [newRun, ...prev]);
 
     try {
-      const res = await fetch(`/api/pipeline/${type}?secret=${secret}`);
+      // Rewrite pakai batch-rewrite endpoint
+      const endpoint = type === 'rewrite' ? '/api/pipeline/batch-rewrite' : `/api/pipeline/${type}`;
+      const res = await fetch(`${endpoint}?secret=${secret}`);
 
-      // Fetch returns streaming text — read chunks in real-time
-      if (type === 'fetch' && res.body) {
+      // Fetch & Rewrite return streaming text
+      if (res.body && (type === 'fetch' || type === 'rewrite')) {
         const reader = res.body.getReader();
         const decoder = new TextDecoder();
         let lastLine = '';
@@ -96,13 +98,13 @@ export default function PipelineDashboard() {
         } : r));
         setTimeout(() => fetchPosts(), 2000);
       } else {
-        // Rewrite & publish return JSON
+        // Publish returns JSON
         const data = await res.json();
         setRuns(prev => prev.map(r => r.id === runId ? {
           ...r,
           status: 'done',
           result: data.success
-            ? `${data.totalSaved ?? data.rewritten ?? data.published ?? 0} artikel diproses`
+            ? `${data.published ?? 0} artikel dipublish`
             : (data.error || 'Gagal'),
         } : r));
         fetchPosts();

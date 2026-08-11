@@ -9,6 +9,7 @@ import { isSimilarTitle } from '@/lib/title-dedup';
 import { aiDeduplicate } from '@/lib/ai-dedup';
 import { fetchAllPopular, type PopularArticle } from '@/lib/popular-scraper';
 import { rewriteArticle } from '@/lib/ai-rewriter';
+import { cleanContent } from '@/lib/popular-scraper';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
@@ -190,7 +191,7 @@ export async function GET(request: NextRequest) {
 
             // AI Rewrite langsung
             try {
-              const content = article.content || article.title;
+              const content = cleanContent(article.content || article.title);
               if (content.length > 50) {
                 const rewritten = await rewriteArticle(
                   article.title, content, article.sourceName || 'Unknown', article.category || 'Nasional'
