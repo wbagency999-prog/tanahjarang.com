@@ -107,43 +107,75 @@ function detectCategoryFromUrl(url: string): string {
     return 'nasional';
   }
 
+  // CNN Indonesia
+  if (u.includes('cnnindonesia.com/nasional')) return 'nasional';
+  if (u.includes('cnnindonesia.com/internasional')) return 'internasional';
+  if (u.includes('cnnindonesia.com/teknologi')) return 'teknologi';
+  if (u.includes('cnnindonesia.com/olahraga')) return 'olahraga';
+  if (u.includes('cnnindonesia.com/hiburan')) return 'hiburan';
+  if (u.includes('cnnindonesia.com/bisnis')) return 'bisnis';
+  if (u.includes('cnnindonesia.com/gaya-hidup')) return 'hiburan';
+
+  // Kumparan
+  if (u.includes('kumparan.com/')) {
+    if (u.includes('/news/') || u.includes('/nasional')) return 'nasional';
+    if (u.includes('/bisnis')) return 'bisnis';
+    if (u.includes('/tekno')) return 'teknologi';
+    if (u.includes('/bola') || u.includes('/olahraga')) return 'olahraga';
+    if (u.includes('/entertainment') || u.includes('/hiburan')) return 'hiburan';
+    return 'nasional';
+  }
+
   return 'nasional';
 }
 
 // ═══ SCRAPER: KOMPAS ═══
 
 async function fetchFromKompas(): Promise<PopularArticle[]> {
-  try {
-    const res = await fetch('https://indeks.kompas.com/terpopuler', {
-      headers: HEADERS,
-      signal: AbortSignal.timeout(20000),
-    });
-    if (!res.ok) return [];
+  const urls = [
+    'https://indeks.kompas.com/terpopuler',
+    'https://tekno.kompas.com/terpopuler',
+    'https://money.kompas.com/terpopuler',
+    'https://bola.kompas.com/terpopuler',
+  ];
 
-    const html = await res.text();
-    const $ = cheerio.load(html);
-    const articles: PopularArticle[] = [];
+  const allArticles: PopularArticle[] = [];
 
-    $('a').each((_, el) => {
-      const href = $(el).attr('href') || '';
-      const title = $(el).text().trim().replace(/\s+/g, ' ');
-      if (title.length < 20 || !href.includes('.kompas.com/read/')) return;
-
-      // Skip duplicate links (same title)
-      if (articles.some(a => a.link === href)) return;
-
-      articles.push({
-        title,
-        link: href,
-        category: detectCategoryFromUrl(href),
-        sourceName: 'Kompas',
+  for (const url of urls) {
+    try {
+      const res = await fetch(url, {
+        headers: HEADERS,
+        signal: AbortSignal.timeout(15000),
       });
-    });
+      if (!res.ok) continue;
 
-    return articles;
-  } catch {
-    return [];
+      const html = await res.text();
+      const $ = cheerio.load(html);
+
+      $('a').each((_, el) => {
+        const href = $(el).attr('href') || '';
+        const title = $(el).text().trim().replace(/\s+/g, ' ');
+        if (title.length < 20 || !href.includes('.kompas.com/read/')) return;
+        if (allArticles.some(a => a.link === href)) return;
+
+        let imageUrl: string | undefined;
+        const parent = $(el).closest('div, article, li');
+        const img = parent.find('img').first();
+        imageUrl = img.attr('src') || img.attr('data-src') || img.attr('data-lazy-src') || undefined;
+        if (imageUrl && !imageUrl.startsWith('http')) imageUrl = undefined;
+
+        allArticles.push({
+          title,
+          link: href,
+          category: detectCategoryFromUrl(href),
+          sourceName: 'Kompas',
+          imageUrl,
+        });
+      });
+    } catch { /* skip failed URL */ }
   }
+
+  return allArticles;
 }
 
 // ═══ SCRAPER: LIPUTAN6 ═══
@@ -274,11 +306,26 @@ async function fetchFromSindonews(): Promise<PopularArticle[]> {
   }
 }
 
+// ═══ RETRY HELPER ═══
+
+async function fetchWithRetry(url: string, options: RequestInit, retries = 2): Promise<Response> {
+  for (let i = 0; i <= retries; i++) {
+    try {
+      const res = await fetch(url, options);
+      if (res.ok) return res;
+      if (i < retries) await new Promise(r => setTimeout(r, 1000 * (i + 1)));
+    } catch {
+      if (i < retries) await new Promise(r => setTimeout(r, 1000 * (i + 1)));
+    }
+  }
+  throw new Error(`Failed after ${retries + 1} attempts: ${url}`);
+}
+
 // ═══ SCRAPER: DETIK ═══
 
 async function fetchFromDetik(): Promise<PopularArticle[]> {
   try {
-    const res = await fetch('https://www.detik.com/terpopuler', {
+    const res = await fetchWithRetry('https://www.detik.com/terpopuler', {
       headers: {
         ...HEADERS,
         'Referer': 'https://www.detik.com/',
@@ -286,7 +333,7 @@ async function fetchFromDetik(): Promise<PopularArticle[]> {
         'Sec-Fetch-Mode': 'navigate',
       },
       redirect: 'follow',
-      signal: AbortSignal.timeout(20000),
+      signal: AbortSignal.timeout(25000),
     });
     if (!res.ok) return [];
 
@@ -312,6 +359,108 @@ async function fetchFromDetik(): Promise<PopularArticle[]> {
         link: href,
         category: detectCategoryFromUrl(href),
         sourceName: 'Detik',
+        imageUrl,
+      });
+    });
+
+    return articles;
+  } catch {
+    return [];
+  }
+}
+
+// ═══ SCRAPER: CNN INDONESIA ═══
+
+async function fetchFromCNN(): Promise<PopularArticle[]> {
+  const urls = [
+    'https://www.cnnindonesia.com/nasional/terpopuler',
+    'https://www.cnnindonesia.com/teknologi/terpopuler',
+    'https://www.cnnindonesia.com/bisnis/terpopuler',
+    'https://www.cnnindonesia.com/olahraga/terpopuler',
+    'https://www.cnnindonesia.com/internasional/terpopuler',
+  ];
+
+  const allArticles: PopularArticle[] = [];
+
+  for (const url of urls) {
+    try {
+      const res = await fetchWithRetry(url, {
+        headers: {
+          ...HEADERS,
+          'Referer': 'https://www.cnnindonesia.com/',
+        },
+        redirect: 'follow',
+        signal: AbortSignal.timeout(15000),
+      });
+      if (!res.ok) continue;
+
+      const html = await res.text();
+      const $ = cheerio.load(html);
+
+      $('a').each((_, el) => {
+        const href = $(el).attr('href') || '';
+        const title = $(el).text().trim().replace(/\s+/g, ' ');
+        if (title.length < 20 || !href.includes('cnnindonesia.com/')) return;
+        if (allArticles.some(a => a.link === href)) return;
+
+        let imageUrl: string | undefined;
+        const parent = $(el).closest('div, article, li');
+        const img = parent.find('img').first();
+        imageUrl = img.attr('src') || img.attr('data-src') || img.attr('data-lazy-src') || undefined;
+        if (imageUrl && !imageUrl.startsWith('http')) imageUrl = undefined;
+
+        allArticles.push({
+          title,
+          link: href,
+          category: detectCategoryFromUrl(href),
+          sourceName: 'CNN Indonesia',
+          imageUrl,
+        });
+      });
+    } catch { /* skip failed URL */ }
+  }
+
+  return allArticles;
+}
+
+// ═══ SCRAPER: KUMPARAN ═══
+
+async function fetchFromKumparan(): Promise<PopularArticle[]> {
+  try {
+    const res = await fetchWithRetry('https://www.kumparan.com/trending', {
+      headers: {
+        ...HEADERS,
+        'Referer': 'https://www.kumparan.com/',
+      },
+      redirect: 'follow',
+      signal: AbortSignal.timeout(20000),
+    });
+    if (!res.ok) return [];
+
+    const html = await res.text();
+    const $ = cheerio.load(html);
+    const articles: PopularArticle[] = [];
+    const seen = new Set<string>();
+
+    $('a').each((_, el) => {
+      const href = $(el).attr('href') || '';
+      const title = $(el).text().trim().replace(/\s+/g, ' ');
+      if (title.length < 20) return;
+      const fullUrl = href.startsWith('http') ? href : `https://www.kumparan.com${href}`;
+      if (!fullUrl.includes('kumparan.com/')) return;
+      if (seen.has(fullUrl)) return;
+      seen.add(fullUrl);
+
+      let imageUrl: string | undefined;
+      const parent = $(el).closest('div, article, li');
+      const img = parent.find('img').first().attr('src');
+      if (img && img.startsWith('http')) imageUrl = img;
+
+      articles.push({
+        title,
+        link: fullUrl,
+        category: detectCategoryFromUrl(fullUrl),
+        sourceName: 'Kumparan',
         imageUrl,
       });
     });
@@ -393,6 +542,8 @@ export async function fetchAllPopular(): Promise<PopularArticle[]> {
     fetchFromAntara(),
     fetchFromSindonews(),
     fetchFromDetik(),
+    fetchFromCNN(),
+    fetchFromKumparan(),
   ]);
 
   const all: PopularArticle[] = [];

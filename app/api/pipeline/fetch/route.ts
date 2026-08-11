@@ -162,8 +162,10 @@ async function saveToSanity(article: PopularArticle, logs: string[]): Promise<{ 
 }
 
 export async function GET(request: NextRequest) {
+  // Auth: support manual secret OR Vercel cron CRON_SECRET
   const secret = request.nextUrl.searchParams.get('secret');
-  if (secret !== process.env.PIPELINE_SECRET) {
+  const cronAuth = request.headers.get('authorization') === `Bearer ${process.env.CRON_SECRET}`;
+  if (secret !== process.env.PIPELINE_SECRET && !cronAuth) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
