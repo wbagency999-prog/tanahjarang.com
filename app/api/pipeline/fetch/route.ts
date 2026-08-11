@@ -7,6 +7,7 @@ import Parser from 'rss-parser';
 import { getWriteClient } from '@/sanity/writeClient';
 import { RSS_FEEDS, FILTER_KEYWORDS } from '@/lib/rss-feeds';
 import { isSimilarTitle } from '@/lib/title-dedup';
+import { fetchAllPopular, type PopularArticle } from '@/lib/popular-scraper';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -300,7 +301,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const enabledFeeds = RSS_FEEDS.filter((f) => f.enabled);
+  const source = request.nextUrl.searchParams.get('source') || 'rss';
   const feedLimit = parseInt(request.nextUrl.searchParams.get('feeds') || '1');
   const articleLimit = parseInt(request.nextUrl.searchParams.get('limit') || '1');
   const logs: string[] = [];
@@ -308,44 +309,68 @@ export async function GET(request: NextRequest) {
   let totalSaved = 0;
 
   logs.push(`Starting fetch at ${new Date().toISOString()}`);
-  logs.push(`Limits: ${feedLimit} feed(s), ${articleLimit} article(s) per feed`);
+  logs.push(`Source: ${source} | Limits: ${feedLimit} feed(s), ${articleLimit} article(s) per feed`);
 
   // In-memory dedup: track titles saved in this batch to catch duplicates across feeds
   const savedTitles: string[] = [];
 
-  for (const feed of enabledFeeds.slice(0, feedLimit)) {
-    logs.push(`\nFetching: ${feed.name}...`);
-    const articles = await fetchFeed(feed);
-    const toProcess = articles.slice(0, articleLimit);
-    logs.push(`Found ${articles.length} new, processing ${toProcess.length}`);
+  // Collect articles from all sources
+  const allArticles: FetchedArticle[] = [];
 
-    for (const article of toProcess) {
-      // Dedup: skip artikel dengan judul mirip (check Sanity + in-memory batch)
-      if (await isSimilarTitleExists(article.title) || isSimilarTitle(article.title, savedTitles)) {
-        logs.push(`  ⏭ Skip duplikat: ${article.title.substring(0, 55)}`);
-        totalFetched++;
-        continue;
-      }
+  // ═══ POPULAR SOURCES ═══
+  if (source === 'popular' || source === 'all') {
+    logs.push(`\nFetching popular articles from news sites...`);
+    const popular = await fetchAllPopular();
+    logs.push(`Found ${popular.length} popular articles`);
 
-      const result = await saveToSanity(article, logs);
-      if (result.id) {
-        totalSaved++;
-        savedTitles.push(article.title);
-        const hasImg = article.imageUrl ? '📷' : '  ';
-        logs.push(`  ${hasImg} ${article.title.substring(0, 55)}`);
-        // Verify: try to read back
-        try {
-          const readBack = await getWriteClient().getDocument(result.id);
-          logs.push(`  Verify: ${readBack ? 'FOUND' : 'NOT FOUND'} (${result.id})`);
-        } catch (e: any) {
-          logs.push(`  Verify error: ${e.message}`);
-        }
-      }
-      if (result.error) {
-        logs.push(`  ✗ Save error: ${result.error}`);
-      }
-      totalFetched++;
+    for (const p of popular) {
+      allArticles.push({
+        title: p.title,
+        link: p.link,
+        pubDate: new Date().toISOString(),
+        content: p.content || p.title,
+        excerpt: p.excerpt || p.title,
+        imageUrl: p.imageUrl || null,
+        sourceName: p.sourceName,
+        category: p.category,
+      });
     }
+  }
+
+  // ═══ RSS FEEDS ═══
+  if (source === 'rss' || source === 'all') {
+    const enabledFeeds = RSS_FEEDS.filter((f) => f.enabled);
+    for (const feed of enabledFeeds.slice(0, feedLimit)) {
+      logs.push(`\nFetching RSS: ${feed.name}...`);
+      const articles = await fetchFeed(feed);
+      const toProcess = articles.slice(0, articleLimit);
+      logs.push(`Found ${articles.length} new, processing ${toProcess.length}`);
+      allArticles.push(...toProcess);
+    }
+  }
+
+  // ═══ PROCESS ALL ARTICLES ═══
+  logs.push(`\nProcessing ${allArticles.length} total articles...`);
+
+  for (const article of allArticles) {
+    // Dedup: skip artikel dengan judul mirip (check Sanity + in-memory batch)
+    if (await isSimilarTitleExists(article.title) || isSimilarTitle(article.title, savedTitles)) {
+      logs.push(`  ⏭ Skip duplikat: ${article.title.substring(0, 55)}`);
+      totalFetched++;
+      continue;
+    }
+
+    const result = await saveToSanity(article, logs);
+    if (result.id) {
+      totalSaved++;
+      savedTitles.push(article.title);
+      const hasImg = article.imageUrl ? '📷' : '  ';
+      logs.push(`  ${hasImg} [${article.sourceName}] ${article.title.substring(0, 50)}`);
+    }
+    if (result.error) {
+      logs.push(`  ✗ Save error: ${result.error}`);
+    }
+    totalFetched++;
   }
 
   logs.push(`\nDone! ${totalFetched} fetched, ${totalSaved} saved`);
