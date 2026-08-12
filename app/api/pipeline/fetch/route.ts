@@ -26,19 +26,19 @@ const CATEGORY_MAP: Record<string, string> = {
   bisnis: 'a89c1f1f-b021-4604-9214-2b9e9ef097c8',
   pendidikan: 'vG7OWidh2JKCGmChuCBMmJ',
   otomotif: 'c669d085-a81e-45ac-8057-12a955e6e20a',
-  kesehatan: 'vG7OWidh2JKCGmChuCBMmJ',
+  kesehatan: 'category-kesehatan',
 };
 
 const AUTHOR_MAP: Record<string, string> = {
-  nasional: 'Z7sgg6YupGd2FS20j7fQ5s',
-  internasional: 'Z7sgg6YupGd2FS20j9M4S6',
-  teknologi: '11XvD3mq7HlIxXJq9S3Snm',
-  olahraga: '11XvD3mq7HlIxXJq9S3P58',
-  hiburan: '11XvD3mq7HlIxXJq9S3QIX',
-  bisnis: '11XvD3mq7HlIxXJq9S3NDo',
-  pendidikan: 'Z7sgg6YupGd2FS20j9M2vL',
-  otomotif: '11XvD3mq7HlIxXJq9S3TRh',
-  kesehatan: '11XvD3mq7HlIxXJq9S3TRh',
+  nasional: 'Z7sgg6YupGd2FS20j7fQ5s',       // Warta Nusantara
+  internasional: 'Z7sgg6YupGd2FS20j9M4S6',   // Hendra Wijaya
+  teknologi: '11XvD3mq7HlIxXJq9S3Snm',       // Dimas Kurniawan
+  olahraga: '11XvD3mq7HlIxXJq9S3P58',        // Rizky Aditya
+  hiburan: '11XvD3mq7HlIxXJq9S3QIX',         // Maya Putri
+  bisnis: '11XvD3mq7HlIxXJq9S3NDo',          // Budi Prasetyo
+  pendidikan: 'Z7sgg6YupGd2FS20j9M2vL',      // Siti Rahmawati
+  otomotif: '11XvD3mq7HlIxXJq9S3TRh',        // Rina Susanti
+  kesehatan: 'Z7sgg6YupGd2FS20j9M4kF',       // Anisa Permata
 };
 
 async function fetchRecentTitles(): Promise<string[]> {
