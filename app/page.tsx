@@ -99,27 +99,15 @@ export default async function Home() {
     { since: since6h }
   );
 
-  // Fallback trending: jika kurang dari 2, extend ke 24 jam
+  // Fallback trending: jika kurang dari 2, reuse popular24h (hemat 1 GROQ query)
   let finalTrending = trendingPosts;
   if (trendingPosts.length < 2) {
-    const trending24h = await client.fetch<Post[]>(
-      `*[_type == "post" && !(_id in path("drafts.**")) && publishedAt >= $since] | order(views desc)[0...5]{
-        _id, title, slug, excerpt, mainImage, publishedAt,
-        categories[]->{title, slug}, views
-      }`,
-      { since: since24h }
-    );
-    finalTrending = trending24h.length > trendingPosts.length ? trending24h : trendingPosts;
+    if (popular24h.length > trendingPosts.length) finalTrending = popular24h;
   }
 
-  // Fallback trending: jika masih kosong, ambil semua waktu
+  // Fallback trending: jika masih kosong, reuse popularAll
   if (finalTrending.length === 0) {
-    finalTrending = await client.fetch<Post[]>(
-      `*[_type == "post" && !(_id in path("drafts.**"))] | order(views desc)[0...5]{
-        _id, title, slug, excerpt, mainImage, publishedAt,
-        categories[]->{title, slug}, views
-      }`
-    );
+    finalTrending = popularAll;
   }
 
   return (

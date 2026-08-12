@@ -149,14 +149,8 @@ export default async function KategoriPage({
     (a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime()
   );
 
-  // Featured: ambil artikel terbaru di kategori untuk Hero
-  const breakingPosts = await client.fetch<Post[]>(
-    `*[_type == "post" && $category in categories[]->slug.current] | order(publishedAt desc)[0...5]{
-      _id, title, slug, excerpt, mainImage, publishedAt,
-      categories[]->{title, slug}, views
-    }`,
-    { category }
-  );
+  // Breaking: artikel terbaru dari regular posts (bukan AI articles)
+  const breakingPosts = allPosts.filter(p => !p._id.startsWith('aiArticle')).slice(0, 5);
 
   // Popular: 3 time windows
   const [popular24h, popular7d, popularAll] = await Promise.all([
@@ -193,24 +187,13 @@ export default async function KategoriPage({
   );
 
   if (trendingPosts.length < 2) {
-    const trending24h = await client.fetch<Post[]>(
-      `*[_type == "post" && $category in categories[]->slug.current && publishedAt >= $since] | order(views desc)[0...5]{
-        _id, title, slug, excerpt, mainImage, publishedAt,
-        categories[]->{title, slug}, views
-      }`,
-      { category, since: since24h }
-    );
-    if (trending24h.length > trendingPosts.length) trendingPosts = trending24h;
+    // Reuse popular24h sebagai fallback (hemat 1 GROQ query)
+    if (popular24h.length > trendingPosts.length) trendingPosts = popular24h;
   }
 
   if (trendingPosts.length === 0) {
-    trendingPosts = await client.fetch<Post[]>(
-      `*[_type == "post" && $category in categories[]->slug.current] | order(views desc)[0...5]{
-        _id, title, slug, excerpt, mainImage, publishedAt,
-        categories[]->{title, slug}, views
-      }`,
-      { category }
-    );
+    // Reuse popularAll sebagai fallback terakhir
+    trendingPosts = popularAll;
   }
 
   return (

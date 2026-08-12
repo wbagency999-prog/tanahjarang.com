@@ -26,8 +26,10 @@ export async function POST(req: NextRequest) {
         .inc({ [type]: 1 })
         .commit();
     } else {
-      // Create new reaction document
-      result = await writeClient.create({
+      // Create new reaction document with deterministic ID to prevent race condition
+      const docId = `reaction-${postId}`;
+      result = await writeClient.createIfNotExists({
+        _id: docId,
         _type: "reaction",
         post: { _ref: postId, _type: "reference" },
         like: type === "like" ? 1 : 0,
@@ -35,6 +37,17 @@ export async function POST(req: NextRequest) {
         funny: type === "funny" ? 1 : 0,
         angry: type === "angry" ? 1 : 0,
       });
+      // If createIfNotExists returned existing doc, patch it
+      if (result._createdAt !== result._updatedAt || result._createdAt === undefined) {
+        // New doc created, counts already set
+      } else {
+        // Existing doc returned, need to increment
+        result = await writeClient
+          .patch(docId)
+          .setIfMissing({ [type]: 0 })
+          .inc({ [type]: 1 })
+          .commit();
+      }
     }
 
     // Ambil counts terbaru

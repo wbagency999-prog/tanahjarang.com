@@ -17,7 +17,6 @@ export default function ShareButtons({ title, url }: { title: string; url: strin
 
   const waLink = `https://wa.me/?text=${encodeURIComponent(`${title} ${url}`)}`;
   const fbLink = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`;
-  const tgLink = `https://t.me/share/url?url=${encodeURIComponent(url)}&text=${encodeURIComponent(title)}`;
 
   return (
     <div className="flex items-center gap-2">
@@ -38,15 +37,6 @@ export default function ShareButtons({ title, url }: { title: string; url: strin
         className="flex h-8 w-8 items-center justify-center rounded-full bg-[#1877F2] text-white hover:opacity-90"
       >
         f
-      </a>
-      <a
-        href={tgLink}
-        target="_blank"
-        rel="noopener noreferrer"
-        aria-label="Bagikan ke Telegram"
-        className="flex h-8 w-8 items-center justify-center rounded-full bg-[#0088cc] text-white text-xs font-bold hover:opacity-90"
-      >
-        T
       </a>
       <button
         onClick={copyLink}

@@ -171,12 +171,12 @@ async function getPopular(excludeId: string, categorySlug?: string): Promise<Pop
   if (categorySlug) params.category = categorySlug;
 
   const all: PopularPost[] = await client.fetch(
-    `*[_type == "post" && _id != $excludeId ${categoryFilter}]{
+    `*[_type == "post" && _id != $excludeId ${categoryFilter}] | order(views desc)[0...8]{
       _id, title, slug, mainImage, views, categories[]->{title, slug}, publishedAt
     }`,
     params
   );
-  return all.sort((a, b) => (b.views ?? 0) - (a.views ?? 0)).slice(0, 8);
+  return all;
 }
 
 async function incrementViews(id: string) {
@@ -473,16 +473,10 @@ export default async function ArticleDetail({ slug }: { slug: string }) {
     ),
   ]);
 
-  // Fallback trending: jika < 2 dari 6 jam, extend ke 24 jam, PER KATEGORI
+  // Fallback trending: jika < 2 dari 6 jam, reuse popular24h (hemat 1 GROQ query)
   let trending = trendingRaw;
   if (trending.length < 2) {
-    const trending24h = await client.fetch<RelatedPost[]>(
-      `*[_type == "post" && _id != $postId && $category in categories[]->slug.current && publishedAt >= $since] | order(views desc)[0...5]{
-        _id, title, slug, mainImage, publishedAt, views, categories[]->{slug, title}
-      }`,
-      { postId: post._id, category: mainCatSlug, since: since24h }
-    );
-    if (trending24h.length > trending.length) trending = trending24h;
+    if (popular24h.length > trending.length) trending = popular24h;
   }
 
   // Score & sort related posts by relevansi

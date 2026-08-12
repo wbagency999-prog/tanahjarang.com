@@ -26,7 +26,7 @@ export default function AuthorBox({ author }: { author: Author | null }) {
         />
       ) : (
         <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-[#1A1815]/5 text-lg font-bold text-[#1A1815]/60">
-          {author.name[0]}
+          {(author.name ?? "?")[0]}
         </div>
       )}
       <div className="min-w-0 flex-1">

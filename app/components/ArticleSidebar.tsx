@@ -16,10 +16,7 @@ interface Post {
   views?: number;
 }
 
-function decayScore(post: Post): number {
-  const hours = (Date.now() - new Date(post.publishedAt).getTime()) / (1000 * 60 * 60);
-  return (post.views || 0) / Math.pow(hours + 2, 1.5);
-}
+import { decayScore } from "../../lib/decayScore";
 
 type TabKey = "24h" | "7d" | "all";
 
