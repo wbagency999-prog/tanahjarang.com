@@ -14,7 +14,7 @@ export function getWriteClient(): SanityClient {
       apiVersion: '2024-01-01',
       token,
       useCdn: false,
-      timeout: 15000,
+      timeout: 30000,
     })
   }
   return _client

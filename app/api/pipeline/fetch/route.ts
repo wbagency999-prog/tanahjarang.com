@@ -120,6 +120,7 @@ async function saveToSanity(article: PopularArticle): Promise<{ id: string | nul
     });
     return { id: result._id, docId: `drafts.${docId}`, error: null };
   } catch (error: any) {
+    console.error('saveToSanity error:', error.message, error.details ? JSON.stringify(error.details).substring(0, 200) : '');
     return { id: null, docId: null, error: error.message };
   }
 }
