@@ -21,6 +21,18 @@ interface PipelinePost {
     rewrittenAt: string;
     originalTitle: string;
   };
+  comparisonScores?: {
+    jaccardSimilarity: number;
+    cosineSimilarity: number;
+    bleuScore: number;
+    rougeScore: number;
+    aiJudgeScore: number;
+    overallScore: number;
+    compressionRatio: number;
+    originalWordCount: number;
+    rewriteWordCount: number;
+    comparedAt: string;
+  };
 }
 
 // GET — Fetch posts by status
@@ -42,7 +54,7 @@ export async function GET(request: NextRequest) {
   if (status !== 'all') {
     query += ` && pipelineStatus == $status`;
   }
-  query += `] | order(publishedAt desc)[0...${limit}]{_id, title, excerpt, pipelineStatus, publishedAt, sourceName, originalUrl, tags, aiDisclosure, aiMetadata}`;
+  query += `] | order(publishedAt desc)[0...${limit}]{_id, title, excerpt, pipelineStatus, publishedAt, sourceName, originalUrl, tags, aiDisclosure, aiMetadata, comparisonScores}`;
 
   const posts = await writeClient.fetch<PipelinePost[]>(query, status !== 'all' ? { status } : {});
 

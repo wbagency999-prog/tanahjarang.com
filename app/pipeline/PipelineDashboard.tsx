@@ -22,6 +22,17 @@ interface PipelinePost {
     rewrittenAt: string;
     originalTitle: string;
   };
+  comparisonScores?: {
+    jaccardSimilarity: number;
+    cosineSimilarity: number;
+    bleuScore: number;
+    rougeScore: number;
+    aiJudgeScore: number;
+    overallScore: number;
+    compressionRatio: number;
+    originalWordCount: number;
+    rewriteWordCount: number;
+  };
 }
 
 type FilterStatus = 'all' | 'pending-review' | 'ready-for-review' | 'approved' | 'published' | 'rejected';
@@ -368,6 +379,15 @@ function ArticleCard({ post, actionLoading, onUpdateStatus, statusColors, status
               {post.aiDisclosure && (
                 <span className="px-1.5 py-0.5 rounded-full text-[10px] bg-gray-100 text-gray-500">AI</span>
               )}
+              {post.comparisonScores?.overallScore != null && (
+                <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-medium ${
+                  post.comparisonScores.overallScore >= 70 ? 'bg-green-100 text-green-700' :
+                  post.comparisonScores.overallScore >= 50 ? 'bg-amber-100 text-amber-700' :
+                  'bg-red-100 text-red-700'
+                }`}>
+                  Skor: {post.comparisonScores.overallScore}
+                </span>
+              )}
             </div>
             <h3 className="font-semibold text-sm leading-snug line-clamp-2">{post.title}</h3>
             <p className="text-xs text-gray-500 mt-1 line-clamp-2">{post.excerpt}</p>
@@ -395,6 +415,38 @@ function ArticleCard({ post, actionLoading, onUpdateStatus, statusColors, status
               <p className="text-gray-400 italic">Original: {post.aiMetadata.originalTitle}</p>
             )}
           </div>
+
+          {/* Comparison Scores Grid */}
+          {post.comparisonScores && (
+            <div className="bg-gray-50 rounded-xl p-3 space-y-2">
+              <div className="grid grid-cols-3 gap-2">
+                {([
+                  { label: 'Jaccard', value: post.comparisonScores.jaccardSimilarity },
+                  { label: 'Cosine', value: post.comparisonScores.cosineSimilarity },
+                  { label: 'BLEU', value: post.comparisonScores.bleuScore },
+                  { label: 'ROUGE', value: post.comparisonScores.rougeScore },
+                  { label: 'AI Judge', value: post.comparisonScores.aiJudgeScore },
+                  { label: 'Overall', value: post.comparisonScores.overallScore },
+                ] as const).map(m => (
+                  <div key={m.label}>
+                    <div className="text-[10px] text-gray-500 mb-0.5">{m.label}</div>
+                    <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                      <div
+                        className={`h-full rounded-full ${
+                          m.value >= 70 ? 'bg-green-500' : m.value >= 50 ? 'bg-amber-500' : 'bg-red-500'
+                        }`}
+                        style={{ width: `${Math.min(100, m.value)}%` }}
+                      />
+                    </div>
+                    <div className="text-[10px] font-medium text-gray-700 mt-0.5">{m.value}%</div>
+                  </div>
+                ))}
+              </div>
+              <div className="text-[10px] text-gray-400 text-center">
+                Asli: {post.comparisonScores.originalWordCount} kata → Rewrite: {post.comparisonScores.rewriteWordCount} kata ({post.comparisonScores.compressionRatio}x)
+              </div>
+            </div>
+          )}
 
           {/* Action Buttons */}
           <div className="flex gap-2 flex-wrap">

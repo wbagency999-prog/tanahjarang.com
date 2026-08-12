@@ -365,6 +365,35 @@ export default defineType({
         { name: 'originalTitle', type: 'string', title: 'Original Title' },
       ],
     }),
+
+    // ─── PERBANDINGAN TEKS ───
+    defineField({
+      name: 'originalContent',
+      title: 'Konten Asli',
+      type: 'text',
+      group: 'lanjutan',
+      hidden: true,
+      description: 'Konten artikel asli sebelum di-rewrite AI.',
+    }),
+    defineField({
+      name: 'comparisonScores',
+      title: 'Skor Perbandingan',
+      type: 'object',
+      group: 'lanjutan',
+      description: 'Skor perbandingan artikel asli vs hasil rewrite AI.',
+      fields: [
+        { name: 'jaccardSimilarity', type: 'number', title: 'Jaccard', description: 'Kesamaan kata (0-100)' },
+        { name: 'cosineSimilarity', type: 'number', title: 'Cosine', description: 'Deteksi plagiarisme (0-100)' },
+        { name: 'bleuScore', type: 'number', title: 'BLEU', description: 'Presisi n-gram (0-100)' },
+        { name: 'rougeScore', type: 'number', title: 'ROUGE', description: 'Recall informasi (0-100)' },
+        { name: 'aiJudgeScore', type: 'number', title: 'AI Judge', description: 'Penilaian kualitas AI (0-100)' },
+        { name: 'overallScore', type: 'number', title: 'Overall', description: 'Skor keseluruhan (0-100)' },
+        { name: 'compressionRatio', type: 'number', title: 'Rasio Kompresi' },
+        { name: 'originalWordCount', type: 'number', title: 'Kata Asli' },
+        { name: 'rewriteWordCount', type: 'number', title: 'Kata Rewrite' },
+        { name: 'comparedAt', type: 'datetime', title: 'Dibandingkan Pada' },
+      ],
+    }),
   ],
   preview: {
     select: {
