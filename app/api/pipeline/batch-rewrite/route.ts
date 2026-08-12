@@ -7,6 +7,7 @@ import { getWriteClient } from '@/sanity/writeClient';
 import { rewriteArticle } from '@/lib/ai-rewriter';
 import { cleanContent } from '@/lib/popular-scraper';
 import { compareArticles } from '@/lib/text-comparison';
+import { cleanSlug } from '@/lib/slug-utils';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
@@ -87,8 +88,7 @@ export async function GET(request: NextRequest) {
               post.title, bodyText, post.sourceName || 'Unknown', post.category || 'Nasional'
             );
 
-            const slug = rewritten.title
-              .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').substring(0, 100);
+            const slug = cleanSlug(rewritten.title);
 
             // Jalankan perbandingan original vs rewrite
             let comparisonScores: any = null;
