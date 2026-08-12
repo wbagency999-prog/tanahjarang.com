@@ -215,10 +215,10 @@ export async function aiJudgeComparison(
   const prompt = `${JUDGE_PROMPT}
 
 ═══ ARTIKEL ASLI (${sourceName}) ═══
-${original.substring(0, 2000)}
+${original.substring(0, 3000)}
 
 ═══ ARTIKEL REWRITE ═══
-${rewrite.substring(0, 2000)}`;
+${rewrite.substring(0, 3000)}`;
 
   try {
     const response = await anthropic.messages.create({

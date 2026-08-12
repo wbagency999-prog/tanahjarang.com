@@ -6,6 +6,7 @@ import { NextRequest } from 'next/server';
 import { getWriteClient } from '@/sanity/writeClient';
 import { rewriteArticle } from '@/lib/ai-rewriter';
 import { cleanContent } from '@/lib/popular-scraper';
+import { compareArticles } from '@/lib/text-comparison';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
@@ -89,6 +90,28 @@ export async function GET(request: NextRequest) {
             const slug = rewritten.title
               .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').substring(0, 100);
 
+            // Jalankan perbandingan original vs rewrite
+            let comparisonScores: any = null;
+            try {
+              const comp = await compareArticles(bodyText, rewritten.body, post.sourceName || 'Unknown');
+              comparisonScores = {
+                jaccardSimilarity: comp.jaccard,
+                cosineSimilarity: comp.cosine,
+                bleuScore: comp.bleu,
+                rougeScore: comp.rouge,
+                aiJudgeScore: comp.aiJudge.originalityScore,
+                overallScore: Math.round(
+                  comp.jaccard * 0.15 + comp.cosine * 0.25 + (100 - comp.bleu) * 0.20 +
+                  comp.rouge * 0.20 + comp.aiJudge.originalityScore * 0.20
+                ),
+                compressionRatio: Math.round((rewritten.body.split(/\s+/).length / bodyText.split(/\s+/).length) * 100) / 100,
+                originalWordCount: bodyText.split(/\s+/).length,
+                rewriteWordCount: rewritten.body.split(/\s+/).length,
+                comparedAt: new Date().toISOString(),
+              };
+              send(`  📊 Skor: J=${comparisonScores.jaccard} C=${comparisonScores.cosine} O=${comparisonScores.overallScore}`);
+            } catch { /* comparison gagal tidak block pipeline */ }
+
             await getWriteClient()
               .patch(post._id)
               .set({
@@ -122,6 +145,8 @@ export async function GET(request: NextRequest) {
                   rewrittenAt: new Date().toISOString(),
                   originalTitle: post.title,
                 },
+                originalContent: bodyText.substring(0, 50000),
+                ...(comparisonScores && { comparisonScores }),
               })
               .commit();
 

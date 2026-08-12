@@ -141,13 +141,21 @@ export async function GET(request: NextRequest) {
         send(`Starting fetch at ${new Date().toISOString()}`);
 
         // Concurrency guard — cek apakah pipeline sedang berjalan
-        const existingRun = await getWriteClient().fetch<{ _id: string } | null>(
-          `*[_type == "pipelineRun" && status == "running"][0]{ _id }`
+        const existingRun = await getWriteClient().fetch<{ _id: string; startedAt: string } | null>(
+          `*[_type == "pipelineRun" && status == "running"][0]{ _id, startedAt }`
         );
         if (existingRun) {
-          send('⚠ Pipeline sedang berjalan oleh proses lain. Coba lagi nanti.');
-          controller.close();
-          return;
+          // Stale-run detection: jika run > 10 menit, anggap stuck dan hapus
+          const runAge = Date.now() - new Date(existingRun.startedAt).getTime();
+          const TEN_MINUTES = 10 * 60 * 1000;
+          if (runAge > TEN_MINUTES) {
+            send(`⚠ Pipeline run sebelumnya stuck (${Math.round(runAge / 60000)} menit). Membersihkan...`);
+            try { await getWriteClient().delete(existingRun._id); } catch { /* ignore */ }
+          } else {
+            send('⚠ Pipeline sedang berjalan oleh proses lain. Coba lagi nanti.');
+            controller.close();
+            return;
+          }
         }
 
         // Tandai pipeline sedang berjalan
@@ -195,10 +203,12 @@ export async function GET(request: NextRequest) {
           send(`AI dedup: ${aiResult.totalDuplicates} semantic duplicates found`);
         }
 
-        // Save + AI Rewrite
+        // Save + AI Rewrite (max 15 articles per run, sisanya pending untuk batch-rewrite)
+        const MAX_REWRITE_PER_RUN = 15;
         let totalSaved = 0;
         let totalRewritten = 0;
         let totalFetched = 0;
+        let rewriteCount = 0;
         for (let i = 0; i < wordFiltered.length; i++) {
           const article = wordFiltered[i];
           if (aiSkippedIndices.includes(i)) {
@@ -213,7 +223,10 @@ export async function GET(request: NextRequest) {
             savedTitles.push(article.title);
             send(`  📰 [${article.sourceName}] ${article.title.substring(0, 50)}`);
 
-            // AI Rewrite langsung
+            // AI Rewrite langsung (batasi per run)
+            if (rewriteCount >= MAX_REWRITE_PER_RUN) {
+              send(`    ⏸ Limit ${MAX_REWRITE_PER_RUN} artikel tercapai, sisanya pending untuk batch-rewrite`);
+            } else {
             try {
               const content = cleanContent(article.content || article.title);
               if (content.length > 50) {
@@ -235,7 +248,7 @@ export async function GET(request: NextRequest) {
                     rougeScore: comp.rouge,
                     aiJudgeScore: comp.aiJudge.originalityScore,
                     overallScore: Math.round(
-                      comp.jaccard * 0.15 + comp.cosine * 0.25 + comp.bleu * 0.20 +
+                      comp.jaccard * 0.15 + comp.cosine * 0.25 + (100 - comp.bleu) * 0.20 +
                       comp.rouge * 0.20 + comp.aiJudge.originalityScore * 0.20
                     ),
                     compressionRatio: Math.round((rewritten.body.split(/\s+/).length / content.split(/\s+/).length) * 100) / 100,
@@ -287,10 +300,12 @@ export async function GET(request: NextRequest) {
                   .commit();
 
                 totalRewritten++;
+                rewriteCount++;
                 send(`    ✍️ AI rewrite: ${rewritten.title.substring(0, 50)}`);
               }
             } catch (rewriteError: any) {
               send(`    ⚠ Rewrite gagal: ${rewriteError.message.substring(0, 40)}`);
+            }
             }
           }
           if (result.error) {

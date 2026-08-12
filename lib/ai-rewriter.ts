@@ -121,7 +121,7 @@ ${originalContent}`;
     // Attempt 1: normal rewrite
     let response = await anthropic.messages.create({
       model: 'claude-haiku-4-5-20251001',
-      max_tokens: 4096,
+      max_tokens: 6144,
       messages: [
         { role: 'user', content: REWRITE_PROMPT + '\n\n' + userMessage },
       ],
@@ -129,7 +129,7 @@ ${originalContent}`;
 
     let resultText = response.content[0].type === 'text' ? response.content[0].text : '';
 
-    // Attempt 2: retry if JSON parse fails
+    // Attempt 2: retry if JSON parse fails (clean retry, tanpa response gagal)
     try {
       const jsonStr = extractJSON(resultText);
       const result: RewriteResult = JSON.parse(jsonStr);
@@ -138,11 +138,9 @@ ${originalContent}`;
       console.log('AI rewrite: first attempt parse failed, retrying...');
       response = await anthropic.messages.create({
         model: 'claude-haiku-4-5-20251001',
-        max_tokens: 4096,
+        max_tokens: 6144,
         messages: [
-          { role: 'user', content: REWRITE_PROMPT + '\n\n' + userMessage },
-          { role: 'assistant', content: resultText },
-          { role: 'user', content: 'Output HANYA JSON valid tanpa teks lain. Mulai dengan { dan akhirkan dengan }.' },
+          { role: 'user', content: REWRITE_PROMPT + '\n\n' + userMessage + '\n\nPENTING: Output HANYA JSON valid. Jangan tambahkan teks apapun sebelum atau sesudah JSON. Mulai dengan { dan akhirkan dengan }.' },
         ],
       });
 

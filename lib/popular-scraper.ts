@@ -566,12 +566,19 @@ export async function fetchAllPopular(): Promise<PopularArticle[]> {
   const all: PopularArticle[] = [];
   const sourceCounts: Record<string, number> = {};
 
-  for (const r of results) {
+  for (let i = 0; i < results.length; i++) {
+    const r = results[i];
+    const sourceNames = ['Kompas', 'Liputan6', 'ANTARA', 'SINDOnews', 'Detik', 'CNN Indonesia', 'Kumparan'];
     if (r.status === 'fulfilled') {
       all.push(...r.value);
       for (const a of r.value) {
         sourceCounts[a.sourceName] = (sourceCounts[a.sourceName] || 0) + 1;
       }
+      if (r.value.length === 0) {
+        console.warn(`⚠ Source ${sourceNames[i]} returned 0 articles`);
+      }
+    } else {
+      console.warn(`⚠ Source ${sourceNames[i]} FAILED: ${r.reason?.message?.substring(0, 60)}`);
     }
   }
 
@@ -589,8 +596,8 @@ export async function fetchAllPopular(): Promise<PopularArticle[]> {
 
   console.log('After cross-source dedup:', deduped.length);
 
-  // Parallel enrich max 20 articles — ambil og:image dari article page
-  const toEnrich = deduped.slice(0, 20);
+  // Parallel enrich max 30 articles — ambil og:image dari article page
+  const toEnrich = deduped.slice(0, 30);
   console.log(`Enriching ${toEnrich.length} articles (og:image + content)...`);
 
   const enrichedResults = await Promise.allSettled(toEnrich.map(a => enrichArticle(a)));

@@ -39,8 +39,13 @@ export async function GET(request: NextRequest) {
   for (const post of posts) {
     logs.push(`\nPublishing: ${post.title.substring(0, 50)}...`);
 
-    // Quality gate: skip artikel dengan factCheckScore rendah
-    if (post.factCheckScore !== null && post.factCheckScore !== undefined && post.factCheckScore < 60) {
+    // Quality gate: skip jika factCheckScore rendah ATAU tidak ada
+    if (post.factCheckScore === null || post.factCheckScore === undefined) {
+      logs.push(`  ⚠ Skipped: no factCheckScore (quality gate)`);
+      failed++;
+      continue;
+    }
+    if (post.factCheckScore < 60) {
       logs.push(`  ⚠ Skipped: factCheckScore ${post.factCheckScore} < 60 (quality gate)`);
       failed++;
       continue;
@@ -81,14 +86,14 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  // Trigger revalidation
+  // Trigger revalidation dengan published ID (bukan draft ID)
   if (published > 0) {
     try {
       const revalidateUrl = `${process.env.SITE_URL || 'https://tanahjarang.com'}/api/revalidate`;
       await fetch(revalidateUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ secret: process.env.PIPELINE_SECRET }),
+        body: JSON.stringify({ secret: process.env.PIPELINE_SECRET, docId: posts[0]?._id?.replace('drafts.', '') }),
       });
       logs.push(`\n✓ Revalidation triggered`);
     } catch {

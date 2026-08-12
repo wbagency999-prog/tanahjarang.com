@@ -43,6 +43,7 @@ interface PipelineRun {
   status: 'running' | 'done' | 'error';
   startedAt: Date;
   result?: string;
+  logs?: string[];
 }
 
 export default function PipelineDashboard() {
@@ -62,21 +63,27 @@ export default function PipelineDashboard() {
       const res = await fetch(`/api/pipeline/posts?secret=${secret}&status=${filter}`);
       const data = await res.json();
       if (data.posts) setPosts(data.posts);
-      // Count all statuses
+    } catch {}
+    setLoading(false);
+  }, [secret, filter]);
+
+  // Fetch counts sekali saja, atau setelah action (bukan setiap filter change)
+  const fetchCounts = useCallback(async () => {
+    if (!secret) return;
+    try {
       const counts: Record<string, number> = {};
       for (const s of ['pending-review', 'ready-for-review', 'approved', 'published', 'rejected']) {
-        const r = await fetch(`/api/pipeline/posts?secret=${secret}&status=${s}`);
+        const r = await fetch(`/api/pipeline/posts?secret=${secret}&status=${s}&limit=1`);
         const d = await r.json();
         counts[s] = d.posts?.length || 0;
       }
       setStatusCounts(counts);
     } catch {}
-    setLoading(false);
-  }, [secret, filter]);
+  }, [secret]);
 
   useEffect(() => {
-    if (isAuthenticated) fetchPosts();
-  }, [filter, isAuthenticated, fetchPosts]);
+    if (isAuthenticated) { fetchPosts(); fetchCounts(); }
+  }, [filter, isAuthenticated, fetchPosts, fetchCounts]);
 
   const runPipeline = async (type: 'fetch' | 'rewrite' | 'publish') => {
     const runId = `${type}-${Date.now()}`;
@@ -92,22 +99,28 @@ export default function PipelineDashboard() {
       if (res.body && (type === 'fetch' || type === 'rewrite')) {
         const reader = res.body.getReader();
         const decoder = new TextDecoder();
-        let lastLine = '';
+        const allLogs: string[] = [];
 
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
           const chunk = decoder.decode(value, { stream: true });
           const lines = chunk.split('\n').filter(Boolean);
-          for (const line of lines) lastLine = line;
+          allLogs.push(...lines);
+          // Update live
+          setRuns(prev => prev.map(r => r.id === runId ? {
+            ...r,
+            logs: [...allLogs],
+          } : r));
         }
 
         setRuns(prev => prev.map(r => r.id === runId ? {
           ...r,
           status: 'done',
-          result: lastLine || 'Selesai',
+          result: allLogs[allLogs.length - 1] || 'Selesai',
+          logs: [...allLogs],
         } : r));
-        setTimeout(() => fetchPosts(), 2000);
+        setTimeout(() => { fetchPosts(); fetchCounts(); }, 2000);
       } else {
         // Publish returns JSON
         const data = await res.json();
@@ -119,6 +132,7 @@ export default function PipelineDashboard() {
             : (data.error || 'Gagal'),
         } : r));
         fetchPosts();
+        fetchCounts();
       }
     } catch {
       setRuns(prev => prev.map(r => r.id === runId ? { ...r, status: 'error', result: 'Network error' } : r));
@@ -134,6 +148,7 @@ export default function PipelineDashboard() {
         body: JSON.stringify({ secret, postId, status }),
       });
       fetchPosts();
+      fetchCounts();
     } catch {}
     setActionLoading(null);
   };
@@ -251,17 +266,28 @@ export default function PipelineDashboard() {
 
           {/* Recent runs */}
           {runs.length > 0 && (
-            <div className="mt-3 space-y-1">
+            <div className="mt-3 space-y-2">
               {runs.slice(0, 3).map(run => (
-                <div key={run.id} className="flex items-center gap-2 text-xs">
-                  <span className={
-                    run.status === 'running' ? 'animate-pulse text-amber-500' :
-                    run.status === 'done' ? 'text-green-500' : 'text-red-500'
-                  }>
-                    {run.status === 'running' ? '●' : run.status === 'done' ? '✓' : '✗'}
-                  </span>
-                  <span className="text-gray-500">{run.type}</span>
-                  <span className="text-gray-700 truncate flex-1">{run.result || 'Berjalan...'}</span>
+                <div key={run.id} className="border border-gray-200 rounded-lg overflow-hidden">
+                  <div className="flex items-center gap-2 text-xs px-2 py-1.5 bg-gray-50">
+                    <span className={
+                      run.status === 'running' ? 'animate-pulse text-amber-500' :
+                      run.status === 'done' ? 'text-green-500' : 'text-red-500'
+                    }>
+                      {run.status === 'running' ? '●' : run.status === 'done' ? '✓' : '✗'}
+                    </span>
+                    <span className="font-medium text-gray-700">{run.type}</span>
+                    <span className="text-gray-400 text-[10px]">{run.startedAt.toLocaleTimeString()}</span>
+                  </div>
+                  {run.logs && run.logs.length > 0 ? (
+                    <div className="max-h-24 overflow-y-auto px-2 py-1 bg-gray-900 text-[10px] font-mono text-green-400 leading-relaxed">
+                      {run.logs.map((line, i) => (
+                        <div key={i}>{line}</div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="px-2 py-1 text-xs text-gray-500">{run.result || 'Berjalan...'}</div>
+                  )}
                 </div>
               ))}
             </div>
