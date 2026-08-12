@@ -75,7 +75,7 @@ export default function Feed({
       <div className="mt-8 grid gap-8 lg:grid-cols-[1fr_320px]">
         <section>
           <div className="mb-4 flex items-center justify-between border-l-4 border-[#CC181F] pl-3">
-            <h3 className="text-xl font-bold">Latest Posts</h3>
+            <h3 className="text-xl font-bold">Artikel Terbaru</h3>
           </div>
           <LoadMorePosts posts={latestWithoutHero} />
         </section>
@@ -116,7 +116,7 @@ export default function Feed({
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-semibold leading-snug line-clamp-2">{post.title}</p>
                       <p className="mt-1 text-xs text-[#1A1815]/50">
-                        {post.categories?.[0]?.title ?? "Umum"} · {post.views ?? 0}x dibaca
+                        {post.categories?.[0]?.title ?? "Umum"}{post.views ? ` · ${post.views}x dibaca` : ''}
                       </p>
                     </div>
                   </a>

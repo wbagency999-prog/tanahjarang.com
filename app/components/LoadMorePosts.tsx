@@ -5,6 +5,7 @@ import Image from "next/image";
 import AdSlot from "./AdSlot";
 import { urlFor } from "@/sanity/image";
 import { articleHref } from "../lib/articleHref";
+import { waktuLalu } from "../lib/waktuLalu";
 
 interface Post {
   _id: string;
@@ -15,17 +16,6 @@ interface Post {
   publishedAt: string;
   categories: { title: string; slug: { current: string } }[];
   views: number;
-}
-
-function waktuLalu(tanggal: string) {
-  const detik = Math.floor((Date.now() - new Date(tanggal).getTime()) / 1000);
-  if (detik < 60) return "Baru saja";
-  const menit = Math.floor(detik / 60);
-  if (menit < 60) return `${menit} menit lalu`;
-  const jam = Math.floor(menit / 60);
-  if (jam < 24) return `${jam} jam lalu`;
-  const hari = Math.floor(jam / 24);
-  return `${hari} hari lalu`;
 }
 
 const PAGE_SIZE = 10;
@@ -53,7 +43,7 @@ export default function LoadMorePosts({ posts }: { posts: Post[] }) {
                 )}
                 <h4 className="mt-2 text-base font-bold leading-snug sm:text-lg">{post.title}</h4>
                 <p className="mt-1 text-xs text-[#1A1815]/60 line-clamp-2 sm:text-sm">{post.excerpt}</p>
-                <p className="mt-2 text-xs text-[#1A1815]/40">{waktuLalu(post.publishedAt)} · {post.views ?? 0}x dibaca</p>
+                <p className="mt-2 text-xs text-[#1A1815]/40">{waktuLalu(post.publishedAt)}{post.views ? ` · ${post.views}x dibaca` : ''}</p>
               </div>
             </a>
             {(i + 1) % 5 === 0 && i < shown.length - 1 && (
@@ -72,7 +62,7 @@ export default function LoadMorePosts({ posts }: { posts: Post[] }) {
             onClick={() => setVisible((v) => v + PAGE_SIZE)}
             className="rounded-full border border-[#CC181F] px-6 py-2 text-sm font-semibold text-[#CC181F] hover:bg-[#CC181F] hover:text-white"
           >
-            Load More
+            Muat Lebih Banyak
           </button>
         </div>
       )}

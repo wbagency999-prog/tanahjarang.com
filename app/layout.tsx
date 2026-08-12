@@ -67,6 +67,11 @@ export default async function RootLayout({
         )}
         <link rel="manifest" href="/manifest.json" />
         <meta name="theme-color" content="#CC181F" />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var t=localStorage.getItem('theme');var d=t==='dark'||(!t&&matchMedia('(prefers-color-scheme:dark)').matches);d&&document.documentElement.classList.add('dark')}catch(e){}})()`,
+          }}
+        />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black" />
         <meta name="apple-mobile-web-app-title" content="Warta Nusantara" />

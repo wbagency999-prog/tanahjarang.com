@@ -40,7 +40,7 @@ export default function SiteHeader({ categories }: { categories: Category[] }) {
           <DarkModeToggle />
         </div>
       </div>
-      <nav className="overflow-x-auto nav-gradient bg-white/95 backdrop-blur-sm shadow-sm">
+      <nav className="overflow-x-auto nav-gradient shadow-sm">
         <div className="mx-auto flex max-w-6xl gap-6 px-4 py-3 text-sm font-semibold text-white">
           <a href="/" className="whitespace-nowrap border-b-2 border-white pb-0.5">Home</a>
           {categories.map((c) => (

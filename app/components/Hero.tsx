@@ -72,7 +72,7 @@ export default function Hero({ featured, topArticles }: { featured: Post; topArt
                     <span className="text-xs font-bold uppercase tracking-wide text-[#CC181F]">{post.categories[0].title}</span>
                   )}
                   <p className="mt-0.5 line-clamp-2 text-sm font-semibold leading-snug group-hover:text-[#CC181F]">{post.title}</p>
-                  <p className="mt-1 text-xs text-[#1A1815]/40">{waktuLalu(post.publishedAt)} · {post.views ?? 0}x</p>
+                  <p className="mt-1 text-xs text-[#1A1815]/40">{waktuLalu(post.publishedAt)}{post.views ? ` · ${post.views}x` : ''}</p>
                 </div>
               </a>
             ))}

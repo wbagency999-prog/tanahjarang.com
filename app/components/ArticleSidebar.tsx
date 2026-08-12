@@ -80,7 +80,7 @@ export default function ArticleSidebar({
                     {post.title}
                   </p>
                   <p className="mt-1 text-xs text-[#1A1815]/40">
-                    {waktuLalu(post.publishedAt)} · {post.views ?? 0} dibaca
+                    {waktuLalu(post.publishedAt)}{post.views ? ` · ${post.views} dibaca` : ''}
                   </p>
                 </div>
               </a>
@@ -120,7 +120,7 @@ export default function ArticleSidebar({
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-semibold leading-snug line-clamp-2">{post.title}</p>
                   <p className="mt-1 text-xs text-[#1A1815]/50">
-                    {post.categories?.[0]?.title ?? "Umum"} · {post.views ?? 0}x dibaca
+                    {post.categories?.[0]?.title ?? "Umum"}{post.views ? ` · ${post.views}x dibaca` : ''}
                   </p>
                 </div>
               </a>

@@ -431,7 +431,7 @@ export default async function ArticleDetail({ slug }: { slug: string }) {
     notFound();
   }
 
-  incrementViews(post._id);
+  try { incrementViews(post._id); } catch { /* fire-and-forget */ }
 
   const baseUrl = process.env.SITE_URL || "https://tanahjarang.com";
   const categoryTitles = post.categories?.map((c) => c.title) ?? [];
@@ -857,7 +857,8 @@ export default async function ArticleDetail({ slug }: { slug: string }) {
                     <a key={r._id} href={articleHref(r)} className="group flex gap-3 sm:block">
                       <div className="h-16 w-24 shrink-0 overflow-hidden rounded bg-[#1A1815]/10 sm:mb-2 sm:aspect-video sm:w-full">
                         {r.mainImage && (
-                          <Image src={urlFor(r.mainImage).width(300).url()} alt={r.title} width={300} height={200} loading="lazy" className="h-full w-full object-cover" />
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={urlFor(r.mainImage).width(300).url()} alt={r.title} loading="lazy" className="h-full w-full object-cover" />
                         )}
                       </div>
                       <p className="min-w-0 text-sm font-semibold leading-snug line-clamp-2 group-hover:text-[#CC181F]">

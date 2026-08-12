@@ -4,10 +4,10 @@ interface SocialLinksProps {
 
 // Social media URLs — update these when accounts are configured
 const SOCIAL_URLS: Record<string, string> = {
-  // Instagram: "",
-  // Twitter: "",
-  // YouTube: "",
-  // TikTok: "",
+  instagram: "#",
+  twitter: "#",
+  youtube: "#",
+  tiktok: "#",
 };
 
 export default function SocialLinks({ variant = "header" }: SocialLinksProps) {

@@ -63,13 +63,8 @@ export default async function Home() {
   const since24h = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString();
   const since7d = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
-  // Featured: ambil artikel terbaru untuk Hero
-  const breakingPosts = await client.fetch<Post[]>(
-    `*[_type == "post" && !(_id in path("drafts.**"))] | order(publishedAt desc)[0...5]{
-      _id, title, slug, excerpt, mainImage, publishedAt,
-      categories[]->{title, slug}, views
-    }`
-  );
+  // Breaking: artikel terbaru dari regular posts (bukan AI articles)
+  const breakingPosts = mergedPosts.filter(p => !p._id.startsWith('aiArticle')).slice(0, 5);
 
   // Popular: 3 time windows
   const [popular24h, popular7d, popularAll] = await Promise.all([
