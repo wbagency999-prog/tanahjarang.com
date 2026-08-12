@@ -316,15 +316,12 @@ export async function GET(request: NextRequest) {
 
         send(`\nDone! ${totalFetched} fetched, ${totalSaved} saved, ${totalRewritten} rewritten`);
 
-        // Bersihkan pipeline run flag
-        if (runId) try { await getWriteClient().delete(runId); } catch { /* best effort */ }
-
-        controller.close();
       } catch (error: any) {
         send(`Error: ${error.message}`);
-        // Bersihkan pipeline run flag
+      } finally {
+        // Bersihkan pipeline run flag — SELALU jalan
         if (runId) try { await getWriteClient().delete(runId); } catch { /* best effort */ }
-        controller.close();
+        try { controller.close(); } catch { /* already closed */ }
       }
     },
   });

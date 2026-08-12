@@ -159,10 +159,10 @@ export async function GET(request: NextRequest) {
         }
 
         send(`\nDone! ${success} rewritten, ${failed} failed`);
-        controller.close();
       } catch (error: any) {
         send(`Error: ${error.message}`);
-        controller.close();
+      } finally {
+        try { controller.close(); } catch { /* already closed */ }
       }
     },
   });
