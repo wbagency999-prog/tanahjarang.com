@@ -91,7 +91,7 @@ async function getTotalPosts(category: string): Promise<number> {
 
 async function getAllPostsByCategory(category: string): Promise<Post[]> {
   return client.fetch(
-    `*[_type == "post" && !(_id in path("drafts.**")) && $category in categories[]->slug.current] | order(publishedAt desc)[0...200]{
+    `*[_type == "post" && !(_id in path("drafts.**")) && $category in categories[]->slug.current] | order(publishedAt desc)[0...60]{
       _id, title, slug, excerpt, mainImage, publishedAt,
       categories[]->{title, slug}, views
     }`,

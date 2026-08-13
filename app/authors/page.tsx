@@ -26,35 +26,22 @@ export const metadata: Metadata = {
 };
 
 async function getAllAuthors(): Promise<Author[]> {
-  // Fetch authors
+  // Satu query GROQ memakai parent-ref (^) untuk menghitung postCount & totalViews
+  // per author — menggantikan pola N+1 yang memicu satu fetch per author.
   const authors = await client.fetch<any[]>(
     `*[_type == "author"] | order(name asc) {
       _id, name, slug, image, bio, verified, role,
-      specializations, yearsOfExperience
+      specializations, yearsOfExperience,
+      "postCount": count(*[_type == "post" && author._ref == ^._id]),
+      "totalViews": sum(*[_type == "post" && author._ref == ^._id].views)
     }`
   );
 
-  // Fetch post counts & views per author
-  const enriched = await Promise.all(
-    authors.map(async (author) => {
-      const stats = await client.fetch<{ count: number; totalViews: number }>(
-        `{
-          "count": count(*[_type == "post" && author._ref == $id]),
-          "totalViews": *[_type == "post" && author._ref == $id].views
-        }`,
-        { id: author._id }
-      )
-      return {
-        ...author,
-        postCount: stats.count || 0,
-        totalViews: Array.isArray(stats.totalViews)
-          ? stats.totalViews.reduce((sum: number, v: number) => sum + (v || 0), 0)
-          : 0,
-      }
-    })
-  )
-
-  return enriched
+  return authors.map((author) => ({
+    ...author,
+    postCount: author.postCount || 0,
+    totalViews: author.totalViews || 0,
+  }));
 }
 
 function VerifiedBadge() {

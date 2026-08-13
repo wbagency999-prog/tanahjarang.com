@@ -1,4 +1,5 @@
 import { client } from "@/sanity/client";
+import { getAuthor } from "@/lib/queries";
 import { urlFor } from "@/sanity/image";
 import { articleHref } from "../../lib/articleHref";
 import { waktuLalu } from "../../lib/waktuLalu";
@@ -43,21 +44,9 @@ interface Post {
   views: number;
 }
 
-async function getAuthor(slug: string): Promise<Author | null> {
-  return client.fetch(
-    `*[_type == "author" && slug.current == $slug][0]{
-      _id, name, slug, image, bio, verified,
-      role, experience, specializations,
-      education, certifications, yearsOfExperience,
-      socialLinks, email, correctionPolicy
-    }`,
-    { slug }
-  );
-}
-
 async function getPostsByAuthor(authorId: string): Promise<Post[]> {
   return client.fetch(
-    `*[_type == "post" && author._ref == $authorId] | order(publishedAt desc){
+    `*[_type == "post" && author._ref == $authorId] | order(publishedAt desc)[0...50]{
       _id, title, slug, excerpt, mainImage, publishedAt,
       categories[]->{title, slug}, views
     }`,
@@ -67,7 +56,7 @@ async function getPostsByAuthor(authorId: string): Promise<Post[]> {
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
-  const author = await getAuthor(slug);
+  const author = await getAuthor<Author>(slug);
   if (!author) return {};
   return {
     title: `${author.name} | Warta Nusantara`,
@@ -90,7 +79,7 @@ function VerifiedBadge() {
 
 export default async function AuthorProfile({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const author = await getAuthor(slug);
+  const author = await getAuthor<Author>(slug);
   if (!author) notFound();
 
   const posts = await getPostsByAuthor(author._id);

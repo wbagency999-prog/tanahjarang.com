@@ -4,6 +4,8 @@
 
 import { NextRequest } from 'next/server';
 import { getWriteClient } from '@/sanity/writeClient';
+import { isPipelineRequestAuthorized } from '@/lib/auth';
+import { acquirePipelineLock, type PipelineLock } from '@/lib/pipeline-lock';
 import { shouldExclude } from '@/lib/content-filters';
 import { isSimilarTitle } from '@/lib/title-dedup';
 import { aiDeduplicate } from '@/lib/ai-dedup';
@@ -126,9 +128,7 @@ async function saveToSanity(article: PopularArticle): Promise<{ id: string | nul
 }
 
 export async function GET(request: NextRequest) {
-  const secret = request.nextUrl.searchParams.get('secret');
-  const cronAuth = request.headers.get('authorization') === `Bearer ${process.env.CRON_SECRET}`;
-  if (secret !== process.env.PIPELINE_SECRET && !cronAuth) {
+  if (!isPipelineRequestAuthorized(request)) {
     return Response.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
@@ -137,37 +137,19 @@ export async function GET(request: NextRequest) {
   const stream = new ReadableStream({
     async start(controller) {
       const send = (msg: string) => controller.enqueue(encoder.encode(msg + '\n'));
-      let runId: string | null = null;
+      let lock: PipelineLock | null = null;
 
       try {
         send(`Starting fetch at ${new Date().toISOString()}`);
 
-        // Concurrency guard — cek apakah pipeline sedang berjalan
-        const existingRun = await getWriteClient().fetch<{ _id: string; startedAt: string } | null>(
-          `*[_type == "pipelineRun" && status == "running"][0]{ _id, startedAt }`
-        );
-        if (existingRun) {
-          // Stale-run detection: jika run > 10 menit, anggap stuck dan hapus
-          const runAge = Date.now() - new Date(existingRun.startedAt).getTime();
-          const TEN_MINUTES = 10 * 60 * 1000;
-          if (runAge > TEN_MINUTES) {
-            send(`⚠ Pipeline run sebelumnya stuck (${Math.round(runAge / 60000)} menit). Membersihkan...`);
-            try { await getWriteClient().delete(existingRun._id); } catch { /* ignore */ }
-          } else {
-            send('⚠ Pipeline sedang berjalan oleh proses lain. Coba lagi nanti.');
-            controller.close();
-            return;
-          }
+        // Lock atomik lintas-route — tolak jika pipeline lain sedang berjalan
+        lock = await acquirePipelineLock();
+        if (!lock) {
+          send('⚠ Pipeline sedang berjalan oleh proses lain. Coba lagi nanti.');
+          controller.close();
+          return;
         }
-
-        // Tandai pipeline sedang berjalan
-        runId = `pipelineRun-${Date.now()}`;
-        await getWriteClient().create({
-          _id: runId,
-          _type: 'pipelineRun',
-          status: 'running',
-          startedAt: new Date().toISOString(),
-        });
+        send('Pipeline lock acquired');
 
         const savedTitles: string[] = [];
 
@@ -268,18 +250,18 @@ export async function GET(request: NextRequest) {
                     title: rewritten.title,
                     subtitle: (rewritten.subtitle || rewritten.title).substring(0, 120),
                     slug: { _type: 'slug', current: slug },
-                    excerpt: rewritten.excerpt,
+                    excerpt: rewritten.excerpt || '',
                     body: textToBlocks(rewritten.body),
                     tags: rewritten.tags || [],
-                    metaDescription: (rewritten.metaDescription || rewritten.excerpt.substring(0, 160)),
+                    metaDescription: (rewritten.metaDescription || (rewritten.excerpt || '').substring(0, 160)),
                     metaTitle: (rewritten.seoTitle || rewritten.title).substring(0, 60),
                     focusKeyphrase: rewritten.focusKeyphrase || '',
                     'mainImage.alt': (rewritten.mainImageAlt || rewritten.title).substring(0, 125),
                     imageCaption: (rewritten.imageCaption || rewritten.mainImageAlt || rewritten.title).substring(0, 150),
                     seo: {
                       seoTitle: (rewritten.seoTitle || rewritten.title).substring(0, 60),
-                      seoDescription: (rewritten.metaDescription || rewritten.excerpt.substring(0, 160)),
-                      ogDescription: (rewritten.ogDescription || rewritten.excerpt.substring(0, 200)),
+                      seoDescription: (rewritten.metaDescription || (rewritten.excerpt || '').substring(0, 160)),
+                      ogDescription: (rewritten.ogDescription || (rewritten.excerpt || '').substring(0, 200)),
                     },
                     pipelineStatus: 'ready-for-review',
                     aiDisclosure: true,
@@ -320,8 +302,8 @@ export async function GET(request: NextRequest) {
       } catch (error: any) {
         send(`Error: ${error.message}`);
       } finally {
-        // Bersihkan pipeline run flag — SELALU jalan
-        if (runId) try { await getWriteClient().delete(runId); } catch { /* best effort */ }
+        // Lepaskan lock — SELALU jalan (token-based soale tidak menimpa milik orang lain)
+        if (lock) try { await lock.release(); } catch { /* best effort */ }
         try { controller.close(); } catch { /* already closed */ }
       }
     },

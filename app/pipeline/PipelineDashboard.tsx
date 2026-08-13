@@ -16,7 +16,15 @@ interface PipelinePost {
   originalUrl?: string;
   tags: string[];
   aiDisclosure: boolean;
-  categories?: { title: string }[];
+  body?: any[];
+  originalContent?: string;
+  categories?: { title: string; slug?: { current: string } }[];
+  factCheckScore?: number;
+  ethicsScore?: number;
+  originalityScore?: number;
+  plagiarismScore?: number;
+  verifiedFacts?: any[];
+  sourceAttributions?: any[];
   aiMetadata?: {
     model: string;
     rewrittenAt: string;
@@ -296,7 +304,7 @@ export default function PipelineDashboard() {
 
         {/* ─── Status Counts ─── */}
         <div className="flex gap-1.5 overflow-x-auto pb-1 -mx-4 px-4 scrollbar-hide">
-          {(['pending-review', 'ready-for-review', 'approved', 'published'] as FilterStatus[]).map(status => (
+          {(['pending-review', 'ready-for-review', 'approved', 'published', 'rejected'] as FilterStatus[]).map(status => (
             <button
               key={status}
               onClick={() => setFilter(status)}
@@ -382,6 +390,38 @@ function PipelineButton({ label, icon, color, onClick, runs, type }: {
   );
 }
 
+// ─── Helpers: PortableText → teks polos & skor bar ───
+function blocksToText(blocks?: any[]): string {
+  if (!blocks || !Array.isArray(blocks)) return '';
+  return blocks
+    .map((b) => {
+      if (b._type === 'block' && Array.isArray(b.children)) {
+        return b.children
+          .filter((c: any) => c._type === 'span' && typeof c.text === 'string')
+          .map((c: any) => c.text)
+          .join('');
+      }
+      return '';
+    })
+    .filter(Boolean)
+    .join('\n\n');
+}
+
+function scoreBadge(value?: number | null, thresh?: number, invert = false) {
+  if (value === undefined || value === null) {
+    return <span className="px-1.5 py-0.5 rounded text-[10px] bg-gray-100 text-gray-400">—</span>;
+  }
+  const pass = thresh !== undefined ? value >= thresh : value >= 60;
+  const ok = invert ? !pass : pass;
+  return (
+    <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
+      ok ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+    }`}>
+      {value}
+    </span>
+  );
+}
+
 // ─── Article Card Component ───
 function ArticleCard({ post, actionLoading, onUpdateStatus, statusColors, statusLabels }: {
   post: PipelinePost;
@@ -441,6 +481,73 @@ function ArticleCard({ post, actionLoading, onUpdateStatus, statusColors, status
               <p className="text-gray-400 italic">Original: {post.aiMetadata.originalTitle}</p>
             )}
           </div>
+
+          {/* AI Scores — metrik yang jadi gate publish */}
+          {(post.factCheckScore || post.ethicsScore || post.originalityScore || post.plagiarismScore) != null && (
+            <div className="bg-gray-50 rounded-xl p-3">
+              <div className="text-[10px] font-semibold text-gray-500 mb-2">Skor AI (gate publish)</div>
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-500">Fact Check</span>
+                  {scoreBadge(post.factCheckScore, 60)}
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-500">Etika</span>
+                  {scoreBadge(post.ethicsScore)}
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-500">Orisinalitas</span>
+                  {scoreBadge(post.originalityScore)}
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-500">Plagiarisme (&lt;60 aman)</span>
+                  {scoreBadge(post.plagiarismScore, 60, true)}
+                </div>
+              </div>
+              <a
+                href={`https://fff-studio.sanity.studio/intent/edit/id=${post._id}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-block mt-2 text-[10px] text-blue-600 underline"
+              >
+                ✎ Buka di Sanity Studio →
+              </a>
+            </div>
+          )}
+
+          {/* Original vs Rewrite */}
+          {(post.originalContent || (post.body && post.body.length)) && (
+            <div className="bg-gray-50 rounded-xl p-3">
+              <div className="text-[10px] font-semibold text-gray-500 mb-2">Perbandingan Original ↔ Rewrite</div>
+              {post.originalContent && (
+                <div className="mb-2">
+                  <div className="text-[10px] text-gray-400 mb-1">Asli sumber ({post.originalContent.length} char):</div>
+                  <p className="text-xs text-gray-600 whitespace-pre-wrap line-clamp-6">{post.originalContent}</p>
+                </div>
+              )}
+              {post.body && (
+                <div>
+                  <div className="text-[10px] text-gray-400 mb-1">Hasil rewrite:</div>
+                  <p className="text-xs text-gray-600 whitespace-pre-wrap line-clamp-6">{blocksToText(post.body)}</p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Verified Facts */}
+          {post.verifiedFacts && post.verifiedFacts.length > 0 && (
+            <div className="bg-green-50/50 rounded-xl p-3">
+              <div className="text-[10px] font-semibold text-gray-500 mb-2">Klaim terverifikasi ({post.verifiedFacts.length})</div>
+              <ul className="text-xs text-gray-600 space-y-1">
+                {post.verifiedFacts.map((fact, i) => (
+                  <li key={i} className="flex gap-1.5">
+                    <span className="text-green-600">✓</span>
+                    <span>{typeof fact === 'string' ? fact : (fact.claim || JSON.stringify(fact))}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
 
           {/* Comparison Scores Grid */}
           {post.comparisonScores && (

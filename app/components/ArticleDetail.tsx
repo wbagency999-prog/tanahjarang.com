@@ -1,5 +1,6 @@
 import { client } from "@/sanity/client";
 import { writeClient } from "@/sanity/writeClient";
+import { getPost, getPopular } from "@/lib/queries";
 import { urlFor } from "@/sanity/image";
 import { PortableText } from "@portabletext/react";
 import { notFound } from "next/navigation";
@@ -101,40 +102,6 @@ interface Post {
 
 /* ───────── Queries ───────── */
 
-async function getPost(slug: string): Promise<Post | null> {
-  return client.fetch(
-      `*[_type == "post" && slug.current == $slug][0]{
-      _id,
-      title,
-      subtitle,
-      slug,
-      excerpt,
-      metaDescription,
-      seo,
-      mainImage,
-      publishedAt,
-      updatedAt,
-      categories[]->{title, slug},
-      tags,
-      tableOfContent,
-      body,
-      views,
-      originalUrl,
-      sourceName,
-      imageCaption,
-      author->{name, image, bio, slug, verified, role},
-      factCheckScore,
-      ethicsScore,
-      originalityScore,
-      plagiarismScore,
-      sourceAttributions,
-      aiDisclosure,
-      verifiedFacts
-    }`,
-    { slug }
-  );
-}
-
 async function getReactions(postId: string): Promise<ReactionData> {
   const data = await client.fetch(
     `*[_type == "reaction" && post._ref == $postId][0]{ like, dislike, funny, angry }`,
@@ -165,20 +132,6 @@ async function getRelated(postId: string, categoryTitles: string[], postTags: st
   );
 }
 
-async function getPopular(excludeId: string, categorySlug?: string): Promise<PopularPost[]> {
-  const categoryFilter = categorySlug ? `&& $category in categories[]->slug.current` : '';
-  const params: Record<string, string> = { excludeId };
-  if (categorySlug) params.category = categorySlug;
-
-  const all: PopularPost[] = await client.fetch(
-    `*[_type == "post" && _id != $excludeId ${categoryFilter}] | order(views desc)[0...8]{
-      _id, title, slug, mainImage, views, categories[]->{title, slug}, publishedAt
-    }`,
-    params
-  );
-  return all;
-}
-
 async function incrementViews(id: string) {
   try {
     await writeClient.patch(id).setIfMissing({ views: 0 }).inc({ views: 1 }).commit();
@@ -192,7 +145,7 @@ async function incrementViews(id: string) {
 const baseUrl = process.env.SITE_URL || "https://tanahjarang.com";
 
 export async function getArticleMetadata(slug: string): Promise<Metadata> {
-  const post = await getPost(slug);
+  const post = await getPost<Post>(slug);
   if (!post) return {};
 
   // Use ogImage if available, fallback to mainImage
@@ -425,7 +378,7 @@ function getBacaJugaCount(wordCount: number): number {
 /* ───────── Component ───────── */
 
 export default async function ArticleDetail({ slug }: { slug: string }) {
-  const post = await getPost(slug);
+  const post = await getPost<Post>(slug);
 
   if (!post) {
     notFound();
@@ -439,7 +392,7 @@ export default async function ArticleDetail({ slug }: { slug: string }) {
 
   const [rawRelated, popular, reactions] = await Promise.all([
     getRelated(post._id, categoryTitles, post.tags || []),
-    getPopular(post._id, mainCatSlug || undefined),
+    getPopular<PopularPost>(post._id, mainCatSlug || undefined),
     getReactions(post._id),
   ]);
 

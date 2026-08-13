@@ -4,6 +4,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { writeClient } from '@/sanity/writeClient';
+import { isPipelineRequestAuthorized } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 
@@ -16,6 +17,15 @@ interface PipelinePost {
   sourceName: string;
   tags: string[];
   aiDisclosure: boolean;
+  body?: any[];
+  originalContent?: string;
+  categories?: { title: string; slug: { current: string } }[];
+  factCheckScore?: number;
+  ethicsScore?: number;
+  originalityScore?: number;
+  plagiarismScore?: number;
+  verifiedFacts?: any[];
+  sourceAttributions?: any[];
   aiMetadata?: {
     model: string;
     rewrittenAt: string;
@@ -37,8 +47,7 @@ interface PipelinePost {
 
 // GET — Fetch posts by status
 export async function GET(request: NextRequest) {
-  const secret = request.nextUrl.searchParams.get('secret');
-  if (secret !== process.env.PIPELINE_SECRET) {
+  if (!isPipelineRequestAuthorized(request)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
@@ -54,7 +63,13 @@ export async function GET(request: NextRequest) {
   if (status !== 'all') {
     query += ` && pipelineStatus == $status`;
   }
-  query += `] | order(publishedAt desc)[0...${limit}]{_id, title, excerpt, pipelineStatus, publishedAt, sourceName, originalUrl, tags, aiDisclosure, aiMetadata, comparisonScores}`;
+  query += `] | order(publishedAt desc)[0...${limit}]{
+    _id, title, excerpt, pipelineStatus, publishedAt, sourceName, originalUrl,
+    tags, aiDisclosure, aiMetadata, body, originalContent,
+    categories[]->{title, slug},
+    factCheckScore, ethicsScore, originalityScore, plagiarismScore,
+    verifiedFacts, sourceAttributions, comparisonScores
+  }`;
 
   const posts = await writeClient.fetch<PipelinePost[]>(query, status !== 'all' ? { status } : {});
 
@@ -63,10 +78,10 @@ export async function GET(request: NextRequest) {
 
 // PATCH — Update post status
 export async function PATCH(request: NextRequest) {
-  const body = await request.json();
+  const body = await request.json().catch(() => ({}));
   const { secret, postId, status } = body;
 
-  if (secret !== process.env.PIPELINE_SECRET) {
+  if (!isPipelineRequestAuthorized(request, body.secret)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
@@ -91,8 +106,15 @@ export async function PATCH(request: NextRequest) {
         return NextResponse.json({ error: 'Document not found' }, { status: 404 });
       }
 
+      // Public sebelah: hanya izinkan publish dari status 'approved' (bukan ready-for-review)
+      if (fullPost.pipelineStatus !== 'approved') {
+        return NextResponse.json(
+          { error: 'Artikel harus berstatus approved sebelum di-publish' },
+          { status: 400 }
+        );
+      }
+
       // Hapus draft
-      await writeClient.delete(postId);
 
       // Buat published version
       const publishedId = postId.replace('drafts.', '');
@@ -112,14 +134,13 @@ export async function PATCH(request: NextRequest) {
 
     return NextResponse.json({ success: true });
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: 'Internal error' }, { status: 500 });
   }
 }
 
 // DELETE — Delete post
 export async function DELETE(request: NextRequest) {
-  const secret = request.nextUrl.searchParams.get('secret');
-  if (secret !== process.env.PIPELINE_SECRET) {
+  if (!isPipelineRequestAuthorized(request)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
@@ -132,6 +153,6 @@ export async function DELETE(request: NextRequest) {
     await writeClient.delete(postId);
     return NextResponse.json({ success: true });
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: 'Internal error' }, { status: 500 });
   }
 }

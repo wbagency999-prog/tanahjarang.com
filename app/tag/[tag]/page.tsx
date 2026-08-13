@@ -49,7 +49,7 @@ interface Post {
 
 async function getPostsByTag(tag: string): Promise<Post[]> {
   return (client as any).fetch(
-    `*[_type == "post" && tags[] match $tag] | order(publishedAt desc){
+    `*[_type == "post" && tags[] match $tag] | order(publishedAt desc)[0...50]{
       _id, title, slug, excerpt, mainImage, publishedAt,
       categories[]->{title, slug}, views
     }`,

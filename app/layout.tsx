@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Plus_Jakarta_Sans, Lora } from "next/font/google";
-import { client } from "@/sanity/client";
+import { getCategories } from "@/lib/queries";
 import SiteHeader from "./components/SiteHeader";
 import SiteFooter from "./components/SiteFooter";
 import BackToTop from "./components/BackToTop";
@@ -38,15 +38,6 @@ export const metadata: Metadata = {
 };
 
 const baseUrl = process.env.SITE_URL || "https://tanahjarang.com";
-
-interface Category {
-  title: string;
-  slug: { current: string };
-}
-
-async function getCategories(): Promise<Category[]> {
-  return client.fetch(`*[_type == "category" && defined(slug.current) && slug.current != "bisnis-ekonomi"] | order(title asc){ title, slug }`);
-}
 
 export default async function RootLayout({
   children,

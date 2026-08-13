@@ -4,6 +4,8 @@
 
 import { NextRequest } from 'next/server';
 import { getWriteClient } from '@/sanity/writeClient';
+import { isPipelineRequestAuthorized } from '@/lib/auth';
+import { acquirePipelineLock, type PipelineLock } from '@/lib/pipeline-lock';
 import { rewriteArticle } from '@/lib/ai-rewriter';
 import { cleanContent } from '@/lib/popular-scraper';
 import { compareArticles } from '@/lib/text-comparison';
@@ -46,9 +48,7 @@ function textToBlocks(text: string): any[] {
 }
 
 export async function GET(request: NextRequest) {
-  const secret = request.nextUrl.searchParams.get('secret');
-  const cronAuth = request.headers.get('authorization') === `Bearer ${process.env.CRON_SECRET}`;
-  if (secret !== process.env.PIPELINE_SECRET && !cronAuth) {
+  if (!isPipelineRequestAuthorized(request)) {
     return Response.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
@@ -58,9 +58,19 @@ export async function GET(request: NextRequest) {
   const stream = new ReadableStream({
     async start(controller) {
       const send = (msg: string) => controller.enqueue(encoder.encode(msg + '\n'));
+      let lock: PipelineLock | null = null;
 
       try {
         send(`Starting batch rewrite at ${new Date().toISOString()}`);
+
+        // Lock atomik lintas-route — tolak jika pipeline lain sedang berjalan
+        lock = await acquirePipelineLock();
+        if (!lock) {
+          send('⚠ Pipeline sedang berjalan oleh proses lain. Coba lagi nanti.');
+          controller.close();
+          return;
+        }
+        send('Pipeline lock acquired');
 
         const posts = await getWriteClient().fetch<PendingPost[]>(
           `*[_type == "post" && pipelineStatus == "pending-review" && defined(mainImage)] | order(publishedAt desc)[0...${limit}]{
@@ -118,18 +128,18 @@ export async function GET(request: NextRequest) {
                 title: rewritten.title,
                 subtitle: (rewritten.subtitle || rewritten.title).substring(0, 120),
                 slug: { _type: 'slug', current: slug },
-                excerpt: rewritten.excerpt,
+                excerpt: rewritten.excerpt || '',
                 body: textToBlocks(rewritten.body),
                 tags: rewritten.tags || [],
-                metaDescription: (rewritten.metaDescription || rewritten.excerpt.substring(0, 160)),
+                metaDescription: (rewritten.metaDescription || (rewritten.excerpt || '').substring(0, 160)),
                 metaTitle: (rewritten.seoTitle || rewritten.title).substring(0, 60),
                 focusKeyphrase: rewritten.focusKeyphrase || '',
                 'mainImage.alt': (rewritten.mainImageAlt || rewritten.title).substring(0, 125),
                 imageCaption: (rewritten.imageCaption || rewritten.mainImageAlt || rewritten.title).substring(0, 150),
                 seo: {
                   seoTitle: (rewritten.seoTitle || rewritten.title).substring(0, 60),
-                  seoDescription: (rewritten.metaDescription || rewritten.excerpt.substring(0, 160)),
-                  ogDescription: (rewritten.ogDescription || rewritten.excerpt.substring(0, 200)),
+                  seoDescription: (rewritten.metaDescription || (rewritten.excerpt || '').substring(0, 160)),
+                  ogDescription: (rewritten.ogDescription || (rewritten.excerpt || '').substring(0, 200)),
                 },
                 pipelineStatus: 'ready-for-review',
                 aiDisclosure: true,
@@ -162,6 +172,7 @@ export async function GET(request: NextRequest) {
       } catch (error: any) {
         send(`Error: ${error.message}`);
       } finally {
+        if (lock) try { await lock.release(); } catch { /* best effort */ }
         try { controller.close(); } catch { /* already closed */ }
       }
     },

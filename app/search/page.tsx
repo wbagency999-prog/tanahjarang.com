@@ -18,7 +18,7 @@ async function searchPosts(q: string): Promise<Post[]> {
   if (!q) return [];
   const term = `*${q}*`;
   return client.fetch(
-    `*[_type == "post" && (title match $term || excerpt match $term)] | order(publishedAt desc){
+    `*[_type == "post" && (title match $term || excerpt match $term)] | order(publishedAt desc)[0...50]{
       _id,
       title,
       slug,

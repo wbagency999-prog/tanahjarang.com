@@ -19,7 +19,7 @@ interface Post {
 
 async function getAllPosts(): Promise<Post[]> {
   return client.fetch<Post[]>(
-    `*[_type == "post" && !(_id in path("drafts.**"))] | order(publishedAt desc)[0...200]{
+    `*[_type == "post" && !(_id in path("drafts.**"))] | order(publishedAt desc)[0...60]{
       _id, title, slug, excerpt, mainImage, publishedAt,
       categories[]->{title, slug}, views
     }`

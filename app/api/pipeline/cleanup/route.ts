@@ -4,6 +4,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getWriteClient } from '@/sanity/writeClient';
+import { isPipelineRequestAuthorized } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 
@@ -11,7 +12,7 @@ export async function POST(request: NextRequest) {
   const body = await request.json().catch(() => ({}));
   const { secret, confirm, mode } = body;
 
-  if (secret !== process.env.PIPELINE_SECRET) {
+  if (!isPipelineRequestAuthorized(request, body.secret)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
